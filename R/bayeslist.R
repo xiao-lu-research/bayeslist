@@ -1,0 +1,1568 @@
+#' Fitting Bayesian sensitive item models
+#'
+#' The main function for running the finite quantile mixture model. The function returns a \code{bayeslist} object that can be further investigated using standard functions such as \code{plot}, \code{print}, and \code{coef}. The model can be passed using a \code{formula} as in \code{lm()}. Convergence diagnotics can be performed using either \code{print(object, "mcmc")} or \code{plot(object, "mcmc")}.
+#'
+#' @param formula An object of class "formula" (or one that can be
+#'   coerced to that class): a symbolic description of the model to be fitted.
+#' @param data A data frame containing the variables in the model.
+#' @param treat Variable name of the treatment.
+#' @param outcome Variable name of the outcome to be predicted.
+#' @param direct Direct item for the misreport model.
+#' @param J Number of control items.
+#' @param type Type of the model. Options include "outcome", "predict", "misreport", for the sensitive item outcome model, predictor model and misreport model, respectively.
+#' @param nsim The number of iterations.
+#' @param burnin The number of burnin iterations.
+#' @param thin Thinning parameter.
+#' @param CIsize The size of posterior confidence interval.
+#' @param nchain The number of parallel chains.
+#' @param seeds Random seeds to replicate the results.
+#' @param vb Logic. If TRUE, variational approximation will be used to supply initial values. The default is FALSE.
+#' @param only_vb. Logic. If TRUE, only variational approximation will be calculated. The default is FALSE.
+#' @param prior Prior types. Options include "auxiliary", "double_list", "direct_item", "cmp". If NULL, no informative priors will be used.
+#' @param direct_item Variable name of the direct item.
+#' @param double_list Variable name of the second list.
+#' @param aux_info Auxiliary information for the informative priors.
+#' @param cmp_a The first parameter for the CMP prior, indicating the prior number of affirmative answers to the sensitive item.
+#' @param cmp_b The second parameter for the CMP prior, indicating the prior number of non-affirmative answers to the sensitive item.
+#' @param conjugate_distance Logic. Indicating whether conjugate distance prior should be used. The default is FALSE.
+#' @param conjugate_k Degrees of freedom to be scaled by conjugate distance prior. The default is NULL.
+#' @param outcome_type The type of the outcome variable to be predicted. Options include "linear" and "binary". The default is "binary".
+#'
+#' @return A \code{bayeslist} object. An object of class \code{bayeslist} contains the following elements
+#'
+#'   \describe{
+#'
+#'   \item{\code{Call}}{The matched call.}
+#'   \item{\code{formula}}{Symbolic representation of the model.}
+#'   \item{\code{type}}{Model type}
+#'   \item{\code{nsim}}{Number of iterations.}
+#'   \item{\code{Burnin}}{Number of burnin iterations.}
+#'   \item{\code{thin}}{Thinning.}
+#'   \item{\code{seeds}}{Random seeds for reproducibility. The default is 12345.}
+#'   \item{\code{CIsize}}{Size of the posterior confidence interval.}
+#'   \item{\code{data}}{Data used.}
+#'   \item{\code{X}}{Independent variables.}
+#'   \item{\code{Y}}{Dependent variables.}
+#'   \item{\code{xnames}}{Names of the independent variables.}
+#'   \item{\code{stanfit}}{Output from stan.}
+#'   \item{\code{sampledf}}{Posterior samples.}
+#'   \item{\code{summaryout}}{Summary of the stan-fit object.}
+#'   \item{\code{npars}}{Number of control variables.}
+#'   \item{\code{only_vb}}{Whether only viariational approximation is used.}
+#'   \item{\code{prior}}{Informative prior types.}
+#'   \item{\code{direct_item}}{Direct item.}
+#'   \item{\code{double_list}}{The second list.}
+#'   \item{\code{aux_info}}{Auxiliary information.}
+#'   \item{\code{ulbs}}{Upper and lower bounds based on the specified confidence interval.}
+#'   \item{\code{means}}{Mean estimates.}
+#'   \item{\code{treat}}{Treatment.}
+#'   \item{\code{outcome}}{Outcome to be predicted.}
+#'   \item{\code{direct}}{Direct item for the misreport model.}
+#'
+#' }
+#'
+#' @references
+#'
+#' @importFrom stats coef model.frame model.matrix quantile
+#'
+#' @export
+#'
+#' @examples
+#'
+#'
+bayeslist <- function(formula,
+data,
+treat,
+outcome = NULL, # variale name of the outcome variable
+direct = NULL, # data of direct item for the misreport model
+J,
+type = "outcome", # "outcome", "predict", or "misreport"
+nsim = 1000,
+burnin = NULL,
+thin = 1,
+CIsize = .95,
+nchain = 1,
+seeds = 12345,
+vb = FALSE, # if true, variation inference will be conducted to initialize the chains
+only_vb = FALSE, # if true, only do variational approximation without direct sampling
+prior = NULL, # options: 1. "auxiliary", 2. "double_list" 3. "direct_item" 4. "cmp" 5. NULL
+direct_item = NULL, # variable name for the direct item
+double_list = NULL, # variable name for the outcome of the second list
+aux_info = NULL, # list(G,h,g), where: G (number of subgroups), h (auxiliary information for each subgroup), and g (subgroup indicator).
+cmp_a = NULL, # first parameter for CMP prior: prior number of affirmative answers
+cmp_b = NULL, # second parameter for CMP prior: prior number of non-affirmative answers
+conjugate_distance = FALSE, # Indicating whether conjugate distance prior will be used for the direct item. The default is FALSE.
+conjugate_k = NULL, # degrees of freedom to be scaled by conjugate distance prior. The default is NULL: no scaling.
+outcome_type = "binary" # outcome type for the predictor model: either "binary" or "linear". The default is binary.
+) {
+    if (is.null(burnin))
+    burnin <- floor(nsim / 2)
+    if (burnin < 0)
+    stop("Burn-in must be non-negative.")
+    if (thin < 1)
+    stop("Thinning factor must be positive.")
+    if (CIsize <= 0)
+    stop("Confidence interval size 'CIsize' must be positive.")
+    if (CIsize > 1)
+    stop(paste0("Confidence interval size 'CIsize' ",
+    "can not be larger than 1."))
+    if (missing(formula) | missing(data)) {
+        stop(paste0("Formula and data should be given."))
+    }
+    
+    if (is.null(prior) == FALSE){
+        if (prior == "auxiliary" && is.null(aux_info)){
+            stop("No auxiliary information provided!")
+        }
+        if (prior == "direct_item" && is.null(direct_item)){
+            stop("No direct item indicated!")
+        }
+        if (prior == "double_list" && is.null(double_list)){
+            stop("No double list item indicated!")
+        }
+    }
+    ##########################################################
+    # Data info
+    data0 <- data
+    f <- Formula::Formula(formula)
+    data <- model.frame(f, data)
+    Y <- c(as.matrix(model.frame(f, data)[, 1]))
+    X <- model.matrix(f, data)
+    
+    n_covariate <- dim(X)[2]
+    N <- length(Y)
+    K <- dim(X)[2]
+    
+    if (is.null(prior) == FALSE){
+        if (prior == "auxiliary"){
+            if (is.list(aux_info) == FALSE){
+                stop("'aux_info' must be a list with the following three elements:
+                G (number of subgroups), h (auxiliary information for each subgroup), and g (subgroup indicator).")
+            }
+            # if (is.integer(aux_info$G) == FALSE){
+            #   stop("G in aux_info must be an integer!")
+            # }
+            if (length(aux_info$h) != aux_info$G){
+                stop("Length of auxiliary information is not equal to the specified number G!")
+            }
+            if (length(aux_info$g) != N){
+                stop("Subgroup indicator in aux_info must have a length of N!")
+            }
+        }
+    }
+    
+    ########################################################################
+    # Bayesian estimation with informative priors
+    if (is.null(prior) == FALSE) {
+        if (prior == "cmp"){
+            ###############################################
+            # CMP prior
+            ###############################################
+            if (type == "outcome") {
+                # model_outcome_noaux = stan_model("list_outcome_constrained1.0.stan")
+                stanmodel <- stanmodels$model_outcome_cmp
+                datlist <- list(
+                N = N, # obs
+                J = J, # number of control items
+                Y = Y, # number of affirmative answers
+                K = K, # number of covariates
+                X = X, # covariate matrix
+                treat = treat, # treatment indicator
+                a = as.array(cmp_a),
+                b = as.array(cmp_b)
+                )
+            } else if (type == "predict") {
+                # model_predict_noaux = stan_model("list_predictor_constrained_logit1.0.stan")
+                if (outcome_type == "binary"){
+                    stanmodel <- stanmodels$model_predict_cmp
+                } else {
+                    stanmodel <- stanmodels$model_predict_cmp_linear
+                }
+                datlist <- list(
+                N = N, # obs
+                J = J, # number of control items
+                Y = Y, # number of affirmative answers
+                K = K, # number of covariates
+                X = X, # covariate matrix
+                treat = treat, # treatment indicator
+                outcome = outcome, # outcome to be predicted
+                a = as.array(cmp_a),
+                b = as.array(cmp_b)
+                )
+            } else {
+                # model_misreport_noaux = stan_model("list_misreport_constrained1.0.stan")
+                stanmodel <- stanmodels$model_misreport_cmp
+                datlist <- list(
+                N = N, # obs
+                J = J, # number of control items
+                Y = Y, # number of affirmative answers
+                K = K, # number of covariates
+                X = X, # covariate matrix
+                treat = treat, # treatment indicator
+                direct = direct, # direct item
+                a = as.array(cmp_a),
+                b = as.array(cmp_b)
+                )
+            }
+            
+            if (type == "outcome") {
+                pars = c("psi0","delta","rho0")
+            } else if (type == "predict") {
+                pars = c("psi0","delta","rho0","psi2","gamma0","phi")
+            } else {
+                pars = c("psi0", "delta", "rho0","gamma0","treat_e","U_e","Z_e")
+            }
+            
+            if (vb == TRUE & only_vb == FALSE){
+                stanvb <- try(vb(
+                stanmodel,
+                data = datlist,
+                pars = pars,
+                seed = seeds
+                ),silent = T)
+                
+                if (class(stanvb) == "try-error"){
+                    print("Variational inference fails! Proceed to direct sampling.")
+                } else{
+                    initvalues = summary(stanvb)$summary[,1]
+                }
+                
+                if (type == "outcome") {
+                    init_fun = function(){
+                        list(psi0 = initvalues[1:K],
+                        delta = initvalues[(K+1):(2*K)],
+                        rho0 = initvalues[2*K+1])
+                    }
+                } else if (type == "predict") {
+                    init_fun = function(){
+                        list(psi0 = initvalues[1:K],
+                        delta = initvalues[(K+1):(2*K)],
+                        rho0 = initvalues[2*K+1],
+                        psi2 = initvalues[(2*K+2):(3*K+1)],
+                        gamma0 = initvalues[(3*K+2)],
+                        phi = initvalues[(3*K+3)]
+                        )
+                    }
+                } else {
+                    init_fun = function(){
+                        list(psi0 = initvalues[1:K],
+                        delta = initvalues[(K+1):(2*K)],
+                        rho0 = initvalues[2*K+1],
+                        gamma0 = initvalues[(2*K+2):(3*K+1)],
+                        treat_e = initvalues[3*K+2],
+                        U_e = initvalues[3*K+3],
+                        Z_e = initvalues[3*K+4]
+                        )
+                    }
+                }
+                
+                if (class(stanvb) == "try-error"){
+                    stanout <- sampling(
+                    stanmodel,
+                    data = datlist,
+                    pars = pars,
+                    seed = seeds,
+                    iter = nsim,
+                    thin = thin,
+                    warmup = burnin,
+                    chains = nchain
+                    )
+                } else {
+                    stanout <- sampling(
+                    stanmodel,
+                    data = datlist,
+                    pars = pars,
+                    init = init_fun,
+                    seed = seeds,
+                    iter = nsim,
+                    thin = thin,
+                    warmup = burnin,
+                    chains = nchain
+                    )
+                }
+            } else if (only_vb == TRUE) {
+                stanout <- stanvb
+            } else {
+                stanout <- sampling(
+                stanmodel,
+                data = datlist,
+                pars = pars,
+                seed = seeds,
+                iter = nsim,
+                thin = thin,
+                warmup = burnin,
+                chains = nchain
+                )
+            }
+        } else if (prior == "auxiliary") {
+            ##############################################
+            # I. Auxiliary information
+            ##############################################
+            if (type == "outcome") {
+                # model_outcome_aux = stan_model("list_outcome_constrained_aux3.0_autosigma.stan")
+                stanmodel <- stanmodels$model_outcome_aux
+                datlist <- list(
+                N = N, # obs
+                J = J, # number of control items
+                Y = Y, # number of affirmative answers
+                K = K, # number of covariates
+                X = X, # covariate matrix
+                treat = treat, # treatment indicator
+                G = aux_info$G,
+                h = as.array(aux_info$h),
+                g = aux_info$g
+                )
+            } else if (type == "predict") {
+                # model_predict_aux = stan_model("list_predictor_constrained_logit1.0_aux.stan")
+                if (outcome_type == "binary"){
+                    stanmodel <- stanmodels$model_predict_aux
+                } else {
+                    stanmodel <- stanmodels$model_predict_aux_linear
+                }
+                datlist <- list(
+                N = N, # obs
+                J = J, # number of control items
+                Y = Y, # number of affirmative answers
+                K = K, # number of covariates
+                X = X, # covariate matrix
+                treat = treat, # treatment indicator
+                outcome = outcome, # outcome to be predicted
+                G = aux_info$G,
+                h = as.array(aux_info$h),
+                g = aux_info$g
+                )
+            } else {
+                # model_misreport_aux = stan_model("list_misreport_constrained1.0_aux.stan")
+                stanmodel <- stanmodels$model_misreport_aux
+                datlist <- list(
+                N = N, # obs
+                J = J, # number of control items
+                Y = Y, # number of affirmative answers
+                K = K, # number of covariates
+                X = X, # covariate matrix
+                treat = treat, # treatment indicator
+                direct = direct, # direct item
+                G = aux_info$G,
+                h = as.array(aux_info$h),
+                g = aux_info$g
+                )
+            }
+            
+            #######################################
+            # variables to be stored
+            if (type == "outcome") {
+                pars = c("psi0","delta","rho0","sigma")
+            } else if (type == "predict") {
+                pars = c("psi0","delta","rho0","psi2","gamma0","phi","sigma")
+            } else {
+                pars = c("psi0", "delta", "rho0","gamma0","treat_e","U_e","Z_e","sigma")
+            }
+            
+            ################################################
+            # Variational inference to get start values
+            if (vb == TRUE & only_vb == FALSE){
+                stanvb <- try(vb(
+                stanmodel,
+                data = datlist,
+                pars = pars,
+                seed = seeds
+                ),silent = T)
+                
+                if (class(stanvb) == "try-error"){
+                    print("Variational inference fails! Proceed to direct sampling.")
+                } else{
+                    initvalues = summary(stanvb)$summary[,1]
+                }
+                
+                if (type == "outcome") {
+                    init_fun = function(){
+                        list(psi0 = initvalues[1:K],
+                        delta = initvalues[(K+1):(2*K)],
+                        rho0 = initvalues[2*K+1],
+                        sigma = initvalues[2*K+2])
+                    }
+                } else if (type == "predict") {
+                    init_fun = function(){
+                        list(psi0 = initvalues[1:K],
+                        delta = initvalues[(K+1):(2*K)],
+                        rho0 = initvalues[2*K+1],
+                        psi2 = initvalues[(2*K+2):(3*K+1)],
+                        gamma0 = initvalues[(3*K+2)],
+                        phi = initvalues[(3*K+3)],
+                        sigma = initvalues[(3*K+4)]
+                        )
+                    }
+                } else {
+                    init_fun = function(){
+                        list(psi0 = initvalues[1:K],
+                        delta = initvalues[(K+1):(2*K)],
+                        rho0 = initvalues[2*K+1],
+                        gamma0 = initvalues[(2*K+2):(3*K+1)],
+                        treat_e = initvalues[3*K+2],
+                        U_e = initvalues[3*K+3],
+                        Z_e = initvalues[3*K+4],
+                        sigma = initvalues[3*K+5]
+                        )
+                    }
+                }
+                
+                ####################################################
+                # direct sampling when variational inference fails
+                if (class(stanvb) == "try-error"){
+                    stanout <- sampling(
+                    stanmodel,
+                    data = datlist,
+                    pars = pars,
+                    seed = seeds,
+                    iter = nsim,
+                    thin = thin,
+                    warmup = burnin,
+                    chains = nchain
+                    )
+                } else {
+                    stanout <- sampling(
+                    stanmodel,
+                    data = datlist,
+                    pars = pars,
+                    init = init_fun,
+                    seed = seeds,
+                    iter = nsim,
+                    thin = thin,
+                    warmup = burnin,
+                    chains = nchain
+                    )
+                }
+            } else if (only_vb == TRUE) {
+                stanout <- stanvb
+            } else {
+                stanout <- sampling(
+                stanmodel,
+                data = datlist,
+                pars = pars,
+                seed = seeds,
+                iter = nsim,
+                thin = thin,
+                warmup = burnin,
+                chains = nchain
+                )
+            }
+            ##############################################
+            # II. Direct item
+        } else if (prior == "direct_item"){
+            ivs = as.character(as.formula(formula))[3]# strsplit(formula,split = "~")[[1]][2]
+            fnew = paste(direct_item, "~", ivs)
+            logitout = glm(fnew , data = data0, family = binomial(link = "logit"))
+            logitoutsum = summary(logitout)
+            mu_delta = logitoutsum$coefficients[,1]
+            sigma_delta = logitoutsum$coefficients[,2]
+            
+            
+            if (conjugate_distance == TRUE){
+                ###############################################
+                # direct item with conjugate distance
+                ###############################################
+                # First get unbiased estimates
+                if (type == "outcome") {
+                    # model_outcome_noaux = stan_model("list_outcome_constrained1.0.stan")
+                    stanmodel <- stanmodels$model_outcome_noaux
+                    datlist <- list(
+                    N = N, # obs
+                    J = J, # number of control items
+                    Y = Y, # number of affirmative answers
+                    K = K, # number of covariates
+                    X = X, # covariate matrix
+                    treat = treat # treatment indicator
+                    )
+                } else if (type == "predict") {
+                    # model_predict_noaux = stan_model("list_predictor_constrained_logit1.0.stan")
+                    if (outcome_type == "binary"){
+                        stanmodel <- stanmodels$model_predict_noaux
+                    } else {
+                        stanmodel <- stanmodels$model_predict_noaux_linear
+                    }
+                    datlist <- list(
+                    N = N, # obs
+                    J = J, # number of control items
+                    Y = Y, # number of affirmative answers
+                    K = K, # number of covariates
+                    X = X, # covariate matrix
+                    treat = treat, # treatment indicator
+                    outcome = outcome # outcome to be predicted
+                    )
+                } else {
+                    # model_misreport_noaux = stan_model("list_misreport_constrained1.0.stan")
+                    stanmodel <- stanmodels$model_misreport_noaux
+                    datlist <- list(
+                    N = N, # obs
+                    J = J, # number of control items
+                    Y = Y, # number of affirmative answers
+                    K = K, # number of covariates
+                    X = X, # covariate matrix
+                    treat = treat, # treatment indicator
+                    direct = direct # direct item
+                    )
+                }
+                
+                if (type == "outcome") {
+                    pars = c("psi0","delta","rho0")
+                } else if (type == "predict") {
+                    pars = c("psi0","delta","rho0","psi2","gamma0","phi")
+                } else {
+                    pars = c("psi0", "delta", "rho0","gamma0","treat_e","U_e","Z_e")
+                }
+                
+                if (vb == TRUE & only_vb == FALSE){
+                    stanvb <- try(vb(
+                    stanmodel,
+                    data = datlist,
+                    pars = pars,
+                    seed = seeds
+                    ),silent = T)
+                    
+                    if (class(stanvb) == "try-error"){
+                        print("Variational inference fails! Proceed to direct sampling.")
+                    } else{
+                        initvalues = summary(stanvb)$summary[,1]
+                    }
+                    
+                    if (type == "outcome") {
+                        init_fun = function(){
+                            list(psi0 = initvalues[1:K],
+                            delta = initvalues[(K+1):(2*K)],
+                            rho0 = initvalues[2*K+1])
+                        }
+                    } else if (type == "predict") {
+                        init_fun = function(){
+                            list(psi0 = initvalues[1:K],
+                            delta = initvalues[(K+1):(2*K)],
+                            rho0 = initvalues[2*K+1],
+                            psi2 = initvalues[(2*K+2):(3*K+1)],
+                            gamma0 = initvalues[(3*K+2)],
+                            phi = initvalues[(3*K+3)]
+                            )
+                        }
+                    } else {
+                        init_fun = function(){
+                            list(psi0 = initvalues[1:K],
+                            delta = initvalues[(K+1):(2*K)],
+                            rho0 = initvalues[2*K+1],
+                            gamma0 = initvalues[(2*K+2):(3*K+1)],
+                            treat_e = initvalues[3*K+2],
+                            U_e = initvalues[3*K+3],
+                            Z_e = initvalues[3*K+4]
+                            )
+                        }
+                    }
+                    if (class(stanvb) == "try-error"){
+                        stanout <- sampling(
+                        stanmodel,
+                        data = datlist,
+                        pars = pars,
+                        seed = seeds,
+                        iter = nsim,
+                        thin = thin,
+                        warmup = burnin,
+                        chains = nchain
+                        )
+                    } else {
+                        stanout <- sampling(
+                        stanmodel,
+                        data = datlist,
+                        pars = pars,
+                        init = init_fun,
+                        seed = seeds,
+                        iter = nsim,
+                        thin = thin,
+                        warmup = burnin,
+                        chains = nchain
+                        )
+                    }
+                } else if (only_vb == TRUE) {
+                    stanout <- stanvb
+                } else {
+                    stanout <- sampling(
+                    stanmodel,
+                    data = datlist,
+                    pars = pars,
+                    seed = seeds,
+                    iter = nsim,
+                    thin = thin,
+                    warmup = burnin,
+                    chains = nchain
+                    )
+                }
+                prior_est_mu = summary(stanout)$summary[,1]
+                prior_est_sigma = summary(stanout)$summary[,3]
+                if (type == "outcome") {
+                    mu_delta0 = prior_est_mu[(K+1):(2*K)]
+                    sigma_delta0 = prior_est_sigma[(K+1):(2*K)]
+                } else if (type == "predict") {
+                    mu_delta0 = prior_est_mu[(K+1):(2*K)]
+                    sigma_delta0 = prior_est_sigma[(K+1):(2*K)]
+                } else {
+                    mu_delta0 = prior_est_mu[(K+1):(2*K)]
+                    sigma_delta0 = prior_est_sigma[(K+1):(2*K)]
+                }
+                
+                if (is.null(conjugate_k) == FALSE){
+                    #############################
+                    # conjugate distance scaled by df.
+                    difsq = (mu_delta - mu_delta0)^2
+                    varprior = NA
+                    for (i in 1:K){
+                        varprior[i] = max((sigma_delta^2)[i], difsq[i])
+                    }
+                    sigma_delta = sqrt(1/log(conjugate_k) * varprior)
+                    
+                    if (type == "outcome") {
+                        # model_outcome_infonorm = stan_model("list_outcome_constrained1.0_infonorm.stan")
+                        stanmodel <- stanmodels$model_outcome_infonorm
+                        datlist <- list(
+                        N = N, # obs
+                        J = J, # number of control items
+                        Y = Y, # number of affirmative answers
+                        K = K, # number of covariates
+                        X = X, # covariate matrix
+                        treat = treat, # treatment indicator
+                        mu_delta = as.array(mu_delta),
+                        sigma_delta = as.array(sigma_delta)
+                        )
+                    } else if (type == "predict") {
+                        # model_predict_infonorm = stan_model("list_predictor_constrained_logit1.0_infonorm.stan")
+                        if (outcome_type == "binary"){
+                            stanmodel <- stanmodels$model_predict_infonorm
+                        } else {
+                            stanmodel <- stanmodels$model_predict_infonorm_linear
+                        }
+                        datlist <- list(
+                        N = N, # obs
+                        J = J, # number of control items
+                        Y = Y, # number of affirmative answers
+                        K = K, # number of covariates
+                        X = X, # covariate matrix
+                        treat = treat, # treatment indicator
+                        outcome = outcome, # outcome to be predicted
+                        mu_delta = as.array(mu_delta),
+                        sigma_delta = as.array(sigma_delta)
+                        )
+                    } else {
+                        # model_misreport_infonorm = stan_model("list_misreport_constrained1.0_infonorm.stan")
+                        stanmodel <- stanmodels$model_misreport_infonorm
+                        datlist <- list(
+                        N = N, # obs
+                        J = J, # number of control items
+                        Y = Y, # number of affirmative answers
+                        K = K, # number of covariates
+                        X = X, # covariate matrix
+                        treat = treat, # treatment indicator
+                        direct = direct, # direct item
+                        mu_delta = as.array(mu_delta),
+                        sigma_delta = as.array(sigma_delta)
+                        )
+                    }
+                    
+                    if (type == "outcome") {
+                        pars = c("psi0","delta","rho0")
+                    } else if (type == "predict") {
+                        pars = c("psi0","delta","rho0","psi2","gamma0","phi")
+                    } else {
+                        pars = c("psi0", "delta", "rho0","gamma0","treat_e","U_e","Z_e")
+                    }
+                    
+                    if (vb == TRUE & only_vb == FALSE){
+                        stanvb <- try(vb(
+                        stanmodel,
+                        data = datlist,
+                        pars = pars,
+                        seed = seeds
+                        ),silent = T)
+                        
+                        if (class(stanvb) == "try-error"){
+                            print("Variational inference fails! Proceed to direct sampling.")
+                        } else{
+                            initvalues = summary(stanvb)$summary[,1]
+                        }
+                        
+                        if (type == "outcome") {
+                            init_fun = function(){
+                                list(psi0 = initvalues[1:K],
+                                delta = initvalues[(K+1):(2*K)],
+                                rho0 = initvalues[2*K+1])
+                            }
+                        } else if (type == "predict") {
+                            init_fun = function(){
+                                list(psi0 = initvalues[1:K],
+                                delta = initvalues[(K+1):(2*K)],
+                                rho0 = initvalues[2*K+1],
+                                psi2 = initvalues[(2*K+2):(3*K+1)],
+                                gamma0 = initvalues[(3*K+2)],
+                                phi = initvalues[(3*K+3)]
+                                )
+                            }
+                        } else {
+                            init_fun = function(){
+                                list(psi0 = initvalues[1:K],
+                                delta = initvalues[(K+1):(2*K)],
+                                rho0 = initvalues[2*K+1],
+                                gamma0 = initvalues[(2*K+2):(3*K+1)],
+                                treat_e = initvalues[3*K+2],
+                                U_e = initvalues[3*K+3],
+                                Z_e = initvalues[3*K+4]
+                                )
+                            }
+                        }
+                        
+                        if (class(stanvb) == "try-error"){
+                            stanout <- sampling(
+                            stanmodel,
+                            data = datlist,
+                            pars = pars,
+                            seed = seeds,
+                            iter = nsim,
+                            thin = thin,
+                            warmup = burnin,
+                            chains = nchain
+                            )
+                        } else {
+                            stanout <- sampling(
+                            stanmodel,
+                            data = datlist,
+                            pars = pars,
+                            init = init_fun,
+                            seed = seeds,
+                            iter = nsim,
+                            thin = thin,
+                            warmup = burnin,
+                            chains = nchain
+                            )
+                        }
+                    } else if (only_vb == TRUE) {
+                        stanout <- stanvb
+                    } else {
+                        stanout <- sampling(
+                        stanmodel,
+                        data = datlist,
+                        pars = pars,
+                        seed = seeds,
+                        iter = nsim,
+                        thin = thin,
+                        warmup = burnin,
+                        chains = nchain
+                        )
+                    }
+                    
+                } else {
+                    ###########################################
+                    # conjugate distance without scaling by df
+                    difsq = (mu_delta - mu_delta0)^2
+                    varprior = NA
+                    for (i in 1:K){
+                        varprior[i] = max((sigma_delta^2)[i], difsq[i])
+                    }
+                    sigma_delta = sqrt(varprior)
+                    
+                    if (type == "outcome") {
+                        # model_outcome_infonorm = stan_model("list_outcome_constrained1.0_infonorm.stan")
+                        stanmodel <- stanmodels$model_outcome_infonorm
+                        datlist <- list(
+                        N = N, # obs
+                        J = J, # number of control items
+                        Y = Y, # number of affirmative answers
+                        K = K, # number of covariates
+                        X = X, # covariate matrix
+                        treat = treat, # treatment indicator
+                        mu_delta = as.array(mu_delta),
+                        sigma_delta = as.array(sigma_delta)
+                        )
+                    } else if (type == "predict") {
+                        # model_predict_infonorm = stan_model("list_predictor_constrained_logit1.0_infonorm.stan")
+                        if (outcome_type == "binary"){
+                            stanmodel <- stanmodels$model_predict_infonorm
+                        } else {
+                            stanmodel <- stanmodels$model_predict_infonorm_linear
+                        }
+                        datlist <- list(
+                        N = N, # obs
+                        J = J, # number of control items
+                        Y = Y, # number of affirmative answers
+                        K = K, # number of covariates
+                        X = X, # covariate matrix
+                        treat = treat, # treatment indicator
+                        outcome = outcome, # outcome to be predicted
+                        mu_delta = as.array(mu_delta),
+                        sigma_delta = as.array(sigma_delta)
+                        )
+                    } else {
+                        # model_misreport_infonorm = stan_model("list_misreport_constrained1.0_infonorm.stan")
+                        stanmodel <- stanmodels$model_misreport_infonorm
+                        datlist <- list(
+                        N = N, # obs
+                        J = J, # number of control items
+                        Y = Y, # number of affirmative answers
+                        K = K, # number of covariates
+                        X = X, # covariate matrix
+                        treat = treat, # treatment indicator
+                        direct = direct, # direct item
+                        mu_delta = as.array(mu_delta),
+                        sigma_delta = as.array(sigma_delta)
+                        )
+                    }
+                    
+                    if (type == "outcome") {
+                        pars = c("psi0","delta","rho0")
+                    } else if (type == "predict") {
+                        pars = c("psi0","delta","rho0","psi2","gamma0","phi")
+                    } else {
+                        pars = c("psi0", "delta", "rho0","gamma0","treat_e","U_e","Z_e")
+                    }
+                    
+                    if (vb == TRUE & only_vb == FALSE){
+                        stanvb <- try(vb(
+                        stanmodel,
+                        data = datlist,
+                        pars = pars,
+                        seed = seeds
+                        ),silent = T)
+                        
+                        if (class(stanvb) == "try-error"){
+                            print("Variational inference fails! Proceed to direct sampling.")
+                        } else{
+                            initvalues = summary(stanvb)$summary[,1]
+                        }
+                        
+                        if (type == "outcome") {
+                            init_fun = function(){
+                                list(psi0 = initvalues[1:K],
+                                delta = initvalues[(K+1):(2*K)],
+                                rho0 = initvalues[2*K+1])
+                            }
+                        } else if (type == "predict") {
+                            init_fun = function(){
+                                list(psi0 = initvalues[1:K],
+                                delta = initvalues[(K+1):(2*K)],
+                                rho0 = initvalues[2*K+1],
+                                psi2 = initvalues[(2*K+2):(3*K+1)],
+                                gamma0 = initvalues[(3*K+2)],
+                                phi = initvalues[(3*K+3)]
+                                )
+                            }
+                        } else {
+                            init_fun = function(){
+                                list(psi0 = initvalues[1:K],
+                                delta = initvalues[(K+1):(2*K)],
+                                rho0 = initvalues[2*K+1],
+                                gamma0 = initvalues[(2*K+2):(3*K+1)],
+                                treat_e = initvalues[3*K+2],
+                                U_e = initvalues[3*K+3],
+                                Z_e = initvalues[3*K+4]
+                                )
+                            }
+                        }
+                        
+                        if (class(stanvb) == "try-error"){
+                            stanout <- sampling(
+                            stanmodel,
+                            data = datlist,
+                            pars = pars,
+                            seed = seeds,
+                            iter = nsim,
+                            thin = thin,
+                            warmup = burnin,
+                            chains = nchain
+                            )
+                        } else {
+                            stanout <- sampling(
+                            stanmodel,
+                            data = datlist,
+                            pars = pars,
+                            init = init_fun,
+                            seed = seeds,
+                            iter = nsim,
+                            thin = thin,
+                            warmup = burnin,
+                            chains = nchain
+                            )
+                        }
+                    } else if (only_vb == TRUE) {
+                        stanout <- stanvb
+                    } else {
+                        stanout <- sampling(
+                        stanmodel,
+                        data = datlist,
+                        pars = pars,
+                        seed = seeds,
+                        iter = nsim,
+                        thin = thin,
+                        warmup = burnin,
+                        chains = nchain
+                        )
+                    }
+                    
+                    
+                }
+                
+            } else {
+                ###############################################
+                # direct item without conjugate distance
+                if (type == "outcome") {
+                    # model_outcome_infonorm = stan_model("list_outcome_constrained1.0_infonorm.stan")
+                    stanmodel <- stanmodels$model_outcome_infonorm
+                    datlist <- list(
+                    N = N, # obs
+                    J = J, # number of control items
+                    Y = Y, # number of affirmative answers
+                    K = K, # number of covariates
+                    X = X, # covariate matrix
+                    treat = treat, # treatment indicator
+                    mu_delta = as.array(mu_delta),
+                    sigma_delta = as.array(sigma_delta)
+                    )
+                } else if (type == "predict") {
+                    # model_predict_infonorm = stan_model("list_predictor_constrained_logit1.0_infonorm.stan")
+                    if (outcome_type == "binary"){
+                        stanmodel <- stanmodels$model_predict_infonorm
+                    } else {
+                        stanmodel <- stanmodels$model_predict_infonorm_linear
+                    }
+                    datlist <- list(
+                    N = N, # obs
+                    J = J, # number of control items
+                    Y = Y, # number of affirmative answers
+                    K = K, # number of covariates
+                    X = X, # covariate matrix
+                    treat = treat, # treatment indicator
+                    outcome = outcome, # outcome to be predicted
+                    mu_delta = as.array(mu_delta),
+                    sigma_delta = as.array(sigma_delta)
+                    )
+                } else {
+                    # model_misreport_infonorm = stan_model("list_misreport_constrained1.0_infonorm.stan")
+                    stanmodel <- stanmodels$model_misreport_infonorm
+                    datlist <- list(
+                    N = N, # obs
+                    J = J, # number of control items
+                    Y = Y, # number of affirmative answers
+                    K = K, # number of covariates
+                    X = X, # covariate matrix
+                    treat = treat, # treatment indicator
+                    direct = direct, # direct item
+                    mu_delta = as.array(mu_delta),
+                    sigma_delta = as.array(sigma_delta)
+                    )
+                }
+                
+                if (type == "outcome") {
+                    pars = c("psi0","delta","rho0")
+                } else if (type == "predict") {
+                    pars = c("psi0","delta","rho0","psi2","gamma0","phi")
+                } else {
+                    pars = c("psi0", "delta", "rho0","gamma0","treat_e","U_e","Z_e")
+                }
+                
+                if (vb == TRUE & only_vb == FALSE){
+                    stanvb <- try(vb(
+                    stanmodel,
+                    data = datlist,
+                    pars = pars,
+                    seed = seeds
+                    ),silent = T)
+                    
+                    if (class(stanvb) == "try-error"){
+                        print("Variational inference fails! Proceed to direct sampling.")
+                    } else{
+                        initvalues = summary(stanvb)$summary[,1]
+                    }
+                    
+                    if (type == "outcome") {
+                        init_fun = function(){
+                            list(psi0 = initvalues[1:K],
+                            delta = initvalues[(K+1):(2*K)],
+                            rho0 = initvalues[2*K+1])
+                        }
+                    } else if (type == "predict") {
+                        init_fun = function(){
+                            list(psi0 = initvalues[1:K],
+                            delta = initvalues[(K+1):(2*K)],
+                            rho0 = initvalues[2*K+1],
+                            psi2 = initvalues[(2*K+2):(3*K+1)],
+                            gamma0 = initvalues[(3*K+2)],
+                            phi = initvalues[(3*K+3)]
+                            )
+                        }
+                    } else {
+                        init_fun = function(){
+                            list(psi0 = initvalues[1:K],
+                            delta = initvalues[(K+1):(2*K)],
+                            rho0 = initvalues[2*K+1],
+                            gamma0 = initvalues[(2*K+2):(3*K+1)],
+                            treat_e = initvalues[3*K+2],
+                            U_e = initvalues[3*K+3],
+                            Z_e = initvalues[3*K+4]
+                            )
+                        }
+                    }
+                    
+                    if (class(stanvb) == "try-error"){
+                        stanout <- sampling(
+                        stanmodel,
+                        data = datlist,
+                        pars = pars,
+                        seed = seeds,
+                        iter = nsim,
+                        thin = thin,
+                        warmup = burnin,
+                        chains = nchain
+                        )
+                    } else {
+                        stanout <- sampling(
+                        stanmodel,
+                        data = datlist,
+                        pars = pars,
+                        init = init_fun,
+                        seed = seeds,
+                        iter = nsim,
+                        thin = thin,
+                        warmup = burnin,
+                        chains = nchain
+                        )
+                    }
+                } else if (only_vb == TRUE) {
+                    stanout <- stanvb
+                } else {
+                    stanout <- sampling(
+                    stanmodel,
+                    data = datlist,
+                    pars = pars,
+                    seed = seeds,
+                    iter = nsim,
+                    thin = thin,
+                    warmup = burnin,
+                    chains = nchain
+                    )
+                }
+            }
+            
+            
+            ##############################################
+            # III. Double list
+        } else if (prior == "double_list"){
+            
+            if (type == "outcome") {
+                # model_outcome_noaux = stan_model("list_outcome_constrained1.0.stan")
+                stanmodel <- stanmodels$model_outcome_noaux
+                datlist <- list(
+                N = N, # obs
+                J = J, # number of control items
+                Y = Y, # number of affirmative answers
+                K = K, # number of covariates
+                X = X, # covariate matrix
+                treat = treat # treatment indicator
+                )
+            } else if (type == "predict") {
+                # model_predict_noaux = stan_model("list_predictor_constrained_logit1.0.stan")
+                if (outcome_type == "binary"){
+                    stanmodel <- stanmodels$model_predict_noaux
+                } else {
+                    stanmodel <- stanmodels$model_predict_noaux_linear
+                }
+                datlist <- list(
+                N = N, # obs
+                J = J, # number of control items
+                Y = Y, # number of affirmative answers
+                K = K, # number of covariates
+                X = X, # covariate matrix
+                treat = treat, # treatment indicator
+                outcome = outcome # outcome to be predicted
+                )
+            } else {
+                # model_misreport_noaux = stan_model("list_misreport_constrained1.0.stan")
+                stanmodel <- stanmodels$model_misreport_noaux
+                datlist <- list(
+                N = N, # obs
+                J = J, # number of control items
+                Y = Y, # number of affirmative answers
+                K = K, # number of covariates
+                X = X, # covariate matrix
+                treat = treat, # treatment indicator
+                direct = direct # direct item
+                )
+            }
+            
+            if (type == "outcome") {
+                pars = c("psi0","delta","rho0")
+            } else if (type == "predict") {
+                pars = c("psi0","delta","rho0","psi2","gamma0","phi")
+            } else {
+                pars = c("psi0", "delta", "rho0","gamma0","treat_e","U_e","Z_e")
+            }
+            
+            if (vb == TRUE & only_vb == FALSE){
+                stanvb <- try(vb(
+                stanmodel,
+                data = datlist,
+                pars = pars,
+                seed = seeds
+                ),silent = T)
+                
+                if (class(stanvb) == "try-error"){
+                    print("Variational inference fails! Proceed to direct sampling.")
+                } else{
+                    initvalues = summary(stanvb)$summary[,1]
+                }
+                
+                if (type == "outcome") {
+                    init_fun = function(){
+                        list(psi0 = initvalues[1:K],
+                        delta = initvalues[(K+1):(2*K)],
+                        rho0 = initvalues[2*K+1])
+                    }
+                } else if (type == "predict") {
+                    init_fun = function(){
+                        list(psi0 = initvalues[1:K],
+                        delta = initvalues[(K+1):(2*K)],
+                        rho0 = initvalues[2*K+1],
+                        psi2 = initvalues[(2*K+2):(3*K+1)],
+                        gamma0 = initvalues[(3*K+2)],
+                        phi = initvalues[(3*K+3)]
+                        )
+                    }
+                } else {
+                    init_fun = function(){
+                        list(psi0 = initvalues[1:K],
+                        delta = initvalues[(K+1):(2*K)],
+                        rho0 = initvalues[2*K+1],
+                        gamma0 = initvalues[(2*K+2):(3*K+1)],
+                        treat_e = initvalues[3*K+2],
+                        U_e = initvalues[3*K+3],
+                        Z_e = initvalues[3*K+4]
+                        )
+                    }
+                }
+                
+                if (class(stanvb) == "try-error"){
+                    stanout <- sampling(
+                    stanmodel,
+                    data = datlist,
+                    pars = pars,
+                    seed = seeds,
+                    iter = nsim,
+                    thin = thin,
+                    warmup = burnin,
+                    chains = nchain
+                    )
+                } else {
+                    stanout <- sampling(
+                    stanmodel,
+                    data = datlist,
+                    pars = pars,
+                    init = init_fun,
+                    seed = seeds,
+                    iter = nsim,
+                    thin = thin,
+                    warmup = burnin,
+                    chains = nchain
+                    )
+                }
+            } else if (only_vb == TRUE) {
+                stanout <- stanvb
+            } else {
+                stanout <- sampling(
+                stanmodel,
+                data = datlist,
+                pars = pars,
+                seed = seeds,
+                iter = nsim,
+                thin = thin,
+                warmup = burnin,
+                chains = nchain
+                )
+            }
+            ######################################
+            #### double list II.
+            ######################################
+            # priors from the first list experiment
+            prior_est_mu = summary(stanout)$summary[,1]
+            prior_est_sigma = summary(stanout)$summary[,3]
+            
+            if (type == "outcome") {
+                mu_psi0 = prior_est_mu[1:K]
+                sigma_psi0 = prior_est_sigma[1:K]
+                mu_delta = prior_est_mu[(K+1):(2*K)]
+                sigma_delta = prior_est_sigma[(K+1):(2*K)]
+                mu_rho0 = prior_est_mu[2*K+1]
+                sigma_rho0 = prior_est_sigma[2*K+1]
+                
+            } else if (type == "predict") {
+                mu_psi0 = prior_est_mu[1:K]
+                sigma_psi0 = prior_est_sigma[1:K]
+                mu_delta = prior_est_mu[(K+1):(2*K)]
+                sigma_delta = prior_est_sigma[(K+1):(2*K)]
+                mu_rho0 = prior_est_mu[2*K+1]
+                sigma_rho0 = prior_est_sigma[2*K+1]
+                mu_psi2 = prior_est_mu[(2*K+2):(3*K+1)]
+                sigma_psi2 = prior_est_sigma[(2*K+2):(3*K+1)]
+                mu_gamma0 = prior_est_mu[(3*K+2)]
+                sigma_gamma0 = prior_est_sigma[(3*K+2)]
+                mu_phi = prior_est_mu[(3*K+3)]
+                sigma_phi = prior_est_sigma[(3*K+3)]
+                
+            } else {
+                mu_psi0 = prior_est_mu[1:K]
+                sigma_psi0 = prior_est_sigma[1:K]
+                mu_delta = prior_est_mu[(K+1):(2*K)]
+                sigma_delta = prior_est_sigma[(K+1):(2*K)]
+                mu_rho0 = prior_est_mu[2*K+1]
+                sigma_rho0 = prior_est_sigma[2*K+1]
+                mu_gamma0 = prior_est_mu[(2*K+2):(3*K+1)]
+                sigma_gamma0 = prior_est_sigma[(2*K+2):(3*K+1)]
+                mu_treate = prior_est_mu[3*K+2]
+                sigma_treate = prior_est_sigma[3*K+2]
+                mu_ue = prior_est_mu[3*K+3]
+                sigma_ue = prior_est_sigma[3*K+3]
+                mu_ze = prior_est_mu[3*K+4]
+                sigma_ze = prior_est_sigma[3*K+4]
+            }
+            
+            if (type == "outcome") {
+                # model_outcome_doublelist = stan_model("list_outcome_constrained3.0_normal_prior.stan")
+                stanmodel <- stanmodels$model_outcome_doublelist
+                datlist <- list(
+                N = N, # obs
+                J = J, # number of control items
+                Y = Y, # number of affirmative answers
+                K = K, # number of covariates
+                X = X, # covariate matrix
+                treat = treat, # treatment indicator
+                mu_psi0 = as.array(mu_psi0),
+                sigma_psi0 = as.array(sigma_psi0),
+                mu_delta = as.array(mu_delta),
+                sigma_delta = as.array(sigma_delta),
+                mu_rho0 = mu_rho0,
+                sigma_rho0 = sigma_rho0
+                )
+            } else if (type == "predict") {
+                # model_predict_doublelist = stan_model("list_predictor_constrained_logit1.0_doublelist.stan")
+                if (outcome_type == "binary"){
+                    stanmodel <- stanmodels$model_predict_doublelist
+                } else {
+                    stanmodel <- stanmodels$model_predict_doublelist_linear
+                }
+                datlist <- list(
+                N = N, # obs
+                J = J, # number of control items
+                Y = Y, # number of affirmative answers
+                K = K, # number of covariates
+                X = X, # covariate matrix
+                treat = treat, # treatment indicator
+                outcome = outcome, # outcome to be predicted
+                mu_psi0 = as.array(mu_psi0),
+                sigma_psi0 = as.array(sigma_psi0),
+                mu_rho0 = mu_rho0,
+                sigma_rho0 = sigma_rho0,
+                mu_delta = as.array(mu_delta),
+                sigma_delta = as.array(sigma_delta),
+                mu_psi2 = as.array(mu_psi2),
+                sigma_psi2 = as.array(sigma_psi2),
+                mu_phi = mu_phi,
+                sigma_phi = sigma_phi,
+                mu_gamma0 = mu_gamma0,
+                sigma_gamma0 = sigma_gamma0
+                )
+            } else {
+                # model_misreport_doublelist = stan_model("list_misreport_constrained_normal_prior2.0.stan")
+                stanmodel <- stanmodels$model_misreport_doublelist
+                datlist <- list(
+                N = N, # obs
+                J = J, # number of control items
+                Y = Y, # number of affirmative answers
+                K = K, # number of covariates
+                X = X, # covariate matrix
+                treat = treat, # treatment indicator
+                direct = direct, # direct item
+                mu_psi0 = as.array(mu_psi0),
+                sigma_psi0 = as.array(sigma_psi0),
+                mu_rho0 = mu_rho0,
+                sigma_rho0 = sigma_rho0,
+                mu_delta = as.array(mu_delta),
+                sigma_delta = as.array(sigma_delta),
+                mu_gamma0 = as.array(mu_gamma0),
+                sigma_gamma0 = as.array(sigma_gamma0),
+                mu_treate = mu_treate,
+                sigma_treate = sigma_treate,
+                mu_ue = mu_ue,
+                sigma_ue = sigma_ue,
+                mu_ze = mu_ze,
+                sigma_ze = sigma_ze
+                )
+            }
+            
+            if (type == "outcome") {
+                pars = c("psi0","delta","rho0")
+            } else if (type == "predict") {
+                pars = c("psi0","delta","rho0","psi2","gamma0","phi")
+            } else {
+                pars = c("psi0", "delta", "rho0","gamma0","treat_e","U_e","Z_e")
+            }
+            
+            if (vb == TRUE & only_vb == FALSE){
+                stanvb <- try(vb(
+                stanmodel,
+                data = datlist,
+                pars = pars,
+                seed = seeds
+                ),silent = T)
+                
+                if (class(stanvb) == "try-error"){
+                    print("Variational inference fails! Proceed to direct sampling.")
+                } else{
+                    initvalues = summary(stanvb)$summary[,1]
+                }
+                
+                if (type == "outcome") {
+                    init_fun = function(){
+                        list(psi0 = initvalues[1:K],
+                        delta = initvalues[(K+1):(2*K)],
+                        rho0 = initvalues[2*K+1])
+                    }
+                } else if (type == "predict") {
+                    init_fun = function(){
+                        list(psi0 = initvalues[1:K],
+                        delta = initvalues[(K+1):(2*K)],
+                        rho0 = initvalues[2*K+1],
+                        psi2 = initvalues[(2*K+2):(3*K+1)],
+                        gamma0 = initvalues[(3*K+2)],
+                        phi = initvalues[(3*K+3)]
+                        )
+                    }
+                } else {
+                    init_fun = function(){
+                        list(psi0 = initvalues[1:K],
+                        delta = initvalues[(K+1):(2*K)],
+                        rho0 = initvalues[2*K+1],
+                        gamma0 = initvalues[(2*K+2):(3*K+1)],
+                        treat_e = initvalues[3*K+2],
+                        U_e = initvalues[3*K+3],
+                        Z_e = initvalues[3*K+4]
+                        )
+                    }
+                }
+                
+                if (class(stanvb) == "try-error"){
+                    stanout <- sampling(
+                    stanmodel,
+                    data = datlist,
+                    pars = pars,
+                    seed = seeds,
+                    iter = nsim,
+                    thin = thin,
+                    warmup = burnin,
+                    chains = nchain
+                    )
+                } else {
+                    stanout <- sampling(
+                    stanmodel,
+                    data = datlist,
+                    pars = pars,
+                    init = init_fun,
+                    seed = seeds,
+                    iter = nsim,
+                    thin = thin,
+                    warmup = burnin,
+                    chains = nchain
+                    )
+                }
+            } else if (only_vb == TRUE) {
+                stanout <- stanvb
+            } else {
+                stanout <- sampling(
+                stanmodel,
+                data = datlist,
+                pars = pars,
+                seed = seeds,
+                iter = nsim,
+                thin = thin,
+                warmup = burnin,
+                chains = nchain
+                )
+            }
+            ##############################################
+            # Otherwise, error
+        } else {
+            stop("Please choose prior types among 'auxiliary', 'direct_item', and 'double_list'!")
+        }
+    } else {
+        ###############################################
+        # Without informative priors
+        ###############################################
+        if (type == "outcome") {
+            # model_outcome_noaux = stan_model("list_outcome_constrained1.0.stan")
+            stanmodel <- stanmodels$model_outcome_noaux
+            datlist <- list(
+            N = N, # obs
+            J = J, # number of control items
+            Y = Y, # number of affirmative answers
+            K = K, # number of covariates
+            X = X, # covariate matrix
+            treat = treat # treatment indicator
+            )
+        } else if (type == "predict") {
+            # model_predict_noaux = stan_model("list_predictor_constrained_logit1.0.stan")
+            if (outcome_type == "binary"){
+                stanmodel <- stanmodels$model_predict_noaux
+            } else {
+                stanmodel <- stanmodels$model_predict_noaux_linear
+            }
+            datlist <- list(
+            N = N, # obs
+            J = J, # number of control items
+            Y = Y, # number of affirmative answers
+            K = K, # number of covariates
+            X = X, # covariate matrix
+            treat = treat, # treatment indicator
+            outcome = outcome # outcome to be predicted
+            )
+        } else {
+            # model_misreport_noaux = stan_model("list_misreport_constrained1.0.stan")
+            stanmodel <- stanmodels$model_misreport_noaux
+            datlist <- list(
+            N = N, # obs
+            J = J, # number of control items
+            Y = Y, # number of affirmative answers
+            K = K, # number of covariates
+            X = X, # covariate matrix
+            treat = treat, # treatment indicator
+            direct = direct # direct item
+            )
+        }
+        
+        if (type == "outcome") {
+            pars = c("psi0","delta","rho0")
+        } else if (type == "predict") {
+            pars = c("psi0","delta","rho0","psi2","gamma0","phi")
+        } else {
+            pars = c("psi0", "delta", "rho0","gamma0","treat_e","U_e","Z_e")
+        }
+        
+        if (vb == TRUE & only_vb == FALSE){
+            stanvb <- try(vb(
+            stanmodel,
+            data = datlist,
+            pars = pars,
+            seed = seeds
+            ),silent = T)
+            
+            if (class(stanvb) == "try-error"){
+                print("Variational inference fails! Proceed to direct sampling.")
+            } else{
+                initvalues = summary(stanvb)$summary[,1]
+            }
+            
+            if (type == "outcome") {
+                init_fun = function(){
+                    list(psi0 = initvalues[1:K],
+                    delta = initvalues[(K+1):(2*K)],
+                    rho0 = initvalues[2*K+1])
+                }
+            } else if (type == "predict") {
+                init_fun = function(){
+                    list(psi0 = initvalues[1:K],
+                    delta = initvalues[(K+1):(2*K)],
+                    rho0 = initvalues[2*K+1],
+                    psi2 = initvalues[(2*K+2):(3*K+1)],
+                    gamma0 = initvalues[(3*K+2)],
+                    phi = initvalues[(3*K+3)]
+                    )
+                }
+            } else {
+                init_fun = function(){
+                    list(psi0 = initvalues[1:K],
+                    delta = initvalues[(K+1):(2*K)],
+                    rho0 = initvalues[2*K+1],
+                    gamma0 = initvalues[(2*K+2):(3*K+1)],
+                    treat_e = initvalues[3*K+2],
+                    U_e = initvalues[3*K+3],
+                    Z_e = initvalues[3*K+4]
+                    )
+                }
+            }
+            
+            if (class(stanvb) == "try-error"){
+                stanout <- sampling(
+                stanmodel,
+                data = datlist,
+                pars = pars,
+                seed = seeds,
+                iter = nsim,
+                thin = thin,
+                warmup = burnin,
+                chains = nchain
+                )
+            } else {
+                stanout <- sampling(
+                stanmodel,
+                data = datlist,
+                pars = pars,
+                init = init_fun,
+                seed = seeds,
+                iter = nsim,
+                thin = thin,
+                warmup = burnin,
+                chains = nchain
+                )
+            }
+        } else if (only_vb == TRUE) {
+            stanout <- stanvb
+        } else {
+            stanout <- sampling(
+            stanmodel,
+            data = datlist,
+            pars = pars,
+            seed = seeds,
+            iter = nsim,
+            thin = thin,
+            warmup = burnin,
+            chains = nchain
+            )
+        }
+        
+    }
+    
+    
+    
+    summaryout <- rstan::summary(stanout)$summary
+    sampledf <- as.data.frame(stanout)
+    
+    # output
+    out <- list()
+    class(out) <- c("bayeslist", class(out))
+    out$Call <- match.call()
+    out$formula <- formula
+    out$type <- type
+    out$nsim <- nsim
+    out$burnin <- burnin
+    out$thin <- thin
+    out$seeds <- seeds
+    out$CIsize  <- CIsize
+    out$data   <- data
+    out$X    <- X
+    out$Y <- Y
+    out$xnames <- colnames(X)
+    out$stanfit <- stanout
+    out$sampledf <- sampledf
+    out$summaryout <- summaryout
+    out$npars <- K
+    out$only_vb <- only_vb
+    out$prior = prior
+    out$direct_item = direct_item
+    out$double_list = double_list
+    out$aux_info = aux_info
+    out$ulbs <-
+    apply(sampledf, 2, quantile, probs = c((1 - CIsize) / 2, 1 - (1 - CIsize) / 2))
+    out$means <- apply(sampledf, 2, mean)
+    out$treat = treat
+    out$outcome = outcome
+    out$direct = direct
+    
+    return(out)
+    
+}
