@@ -1,6 +1,6 @@
 #' Fitting Bayesian sensitive item models
 #'
-#' The main function for running the finite quantile mixture model. The function returns a \code{bayeslist} object that can be further investigated using standard functions such as \code{plot}, \code{print}, and \code{coef}. The model can be passed using a \code{formula} as in \code{lm()}. Convergence diagnotics can be performed using either \code{print(object, "mcmc")} or \code{plot(object, "mcmc")}.
+#' The main function for running the Bayesian sensitive item models. The function returns a \code{bayeslist} object that can be further investigated using standard functions such as \code{plot}, \code{print}, and \code{coef}. The model can be passed using a \code{formula} as in \code{lm()}. Convergence diagnotics can be performed using either \code{print(object, "mcmc")} or \code{plot(object, "mcmc")}.
 #'
 #' @param formula An object of class "formula" (or one that can be
 #'   coerced to that class): a symbolic description of the model to be fitted.
