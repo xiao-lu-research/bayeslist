@@ -6,8 +6,6 @@
 #'   coerced to that class): a symbolic description of the model to be fitted.
 #' @param data A data frame containing the variables in the model.
 #' @param treat Variable name of the treatment.
-#' @param outcome Variable name of the outcome to be predicted.
-#' @param direct Direct item for the misreport model.
 #' @param J Number of control items.
 #' @param type Type of the model. Options include "outcome", "predict", "misreport", for the sensitive item outcome model, predictor model and misreport model, respectively.
 #' @param nsim The number of iterations.
@@ -21,12 +19,16 @@
 #' @param prior Prior types. Options include "auxiliary", "double_list", "direct_item", "cmp". If NULL, no informative priors will be used.
 #' @param direct_item Variable name of the direct item.
 #' @param double_list Variable name of the second list.
-#' @param aux_info Auxiliary information for the informative priors.
+#' @param aux_info Auxiliary information for the informative priors. list(G,h,g), where: G (number of subgroups), h (auxiliary information for each subgroup), and g (subgroup indicator). If is.NULL, the following two parameters need to be specified when estimating the model with prior = "auxiliary".
+#' @param aux_h Auxiliary information for the informative priors: name of the variable indicating the group of each observation.
+#' @param aux_g Auxiliary information for the informative priors: name of the variable containing information of prevalence for each group
 #' @param cmp_a The first parameter for the CMP prior, indicating the prior number of affirmative answers to the sensitive item.
 #' @param cmp_b The second parameter for the CMP prior, indicating the prior number of non-affirmative answers to the sensitive item.
 #' @param conjugate_distance Logic. Indicating whether conjugate distance prior should be used. The default is FALSE.
 #' @param conjugate_k Degrees of freedom to be scaled by conjugate distance prior. The default is NULL.
-#' @param outcome_type The type of the outcome variable to be predicted. Options include "linear" and "binary". The default is "binary".
+#' @param predictvar Variable name of the outcome to be predicted.
+#' @param predictvar_type The type of the outcome variable to be predicted. Options include "linear" and "binary". The default is "binary".
+#' @param parallel. Logic. Indicating whether to do paralell computing. The default is TRUE.
 #'
 #' @return A \code{bayeslist} object. An object of class \code{bayeslist} contains the following elements
 #'
@@ -73,8 +75,6 @@
 bayeslist <- function(formula,
 data,
 treat,
-outcome = NULL, # variale name of the outcome variable
-direct = NULL, # data of direct item for the misreport model
 J,
 type = "outcome", # "outcome", "predict", or "misreport"
 nsim = 1000,
@@ -89,11 +89,16 @@ prior = NULL, # options: 1. "auxiliary", 2. "double_list" 3. "direct_item" 4. "c
 direct_item = NULL, # variable name for the direct item
 double_list = NULL, # variable name for the outcome of the second list
 aux_info = NULL, # list(G,h,g), where: G (number of subgroups), h (auxiliary information for each subgroup), and g (subgroup indicator).
+aux_g = NULL, # name of the variable indicating the group of each observation
+aux_h = NULL, # name of the variable containing information of prevalence for each group
 cmp_a = NULL, # first parameter for CMP prior: prior number of affirmative answers
 cmp_b = NULL, # second parameter for CMP prior: prior number of non-affirmative answers
 conjugate_distance = FALSE, # Indicating whether conjugate distance prior will be used for the direct item. The default is FALSE.
 conjugate_k = NULL, # degrees of freedom to be scaled by conjugate distance prior. The default is NULL: no scaling.
-outcome_type = "binary" # outcome type for the predictor model: either "binary" or "linear". The default is binary.
+predictvar = NULL, # outcome variable to be predicted in the predict model
+predictvar_type = "binary", # outcome type for the predictor model: either "binary" or "linear". The default is binary.
+# direct = NULL, # data of direct item for the misreport model
+parallel = TRUE
 ) {
     if (is.null(burnin))
     burnin <- floor(nsim / 2)
@@ -111,9 +116,9 @@ outcome_type = "binary" # outcome type for the predictor model: either "binary" 
     }
     
     if (is.null(prior) == FALSE){
-        if (prior == "auxiliary" && is.null(aux_info)){
-            stop("No auxiliary information provided!")
-        }
+        #if (prior == "auxiliary" && is.null(aux_info)){
+        #    stop("No auxiliary information provided!")
+        #}
         if (prior == "direct_item" && is.null(direct_item)){
             stop("No direct item indicated!")
         }
@@ -121,35 +126,25 @@ outcome_type = "binary" # outcome type for the predictor model: either "binary" 
             stop("No double list item indicated!")
         }
     }
+    if (parallel == TRUE){
+        options(mc.cores = parallel::detectCores())
+    }
     ##########################################################
     # Data info
     data0 <- data
+    treat0 <- treat
     f <- Formula::Formula(formula)
     data <- model.frame(f, data)
     Y <- c(as.matrix(model.frame(f, data)[, 1]))
     X <- model.matrix(f, data)
+    fnew <- as.character(as.formula(formula))
+    fnew[3] <- paste(treat,"+",fnew[3])
+    treat <- model.frame(as.formula(paste(fnew[2],fnew[1],fnew[3])),data0)[,2]
     
     n_covariate <- dim(X)[2]
     N <- length(Y)
     K <- dim(X)[2]
-    
-    if (is.null(prior) == FALSE){
-        if (prior == "auxiliary"){
-            if (is.list(aux_info) == FALSE){
-                stop("'aux_info' must be a list with the following three elements:
-                G (number of subgroups), h (auxiliary information for each subgroup), and g (subgroup indicator).")
-            }
-            # if (is.integer(aux_info$G) == FALSE){
-            #   stop("G in aux_info must be an integer!")
-            # }
-            if (length(aux_info$h) != aux_info$G){
-                stop("Length of auxiliary information is not equal to the specified number G!")
-            }
-            if (length(aux_info$g) != N){
-                stop("Subgroup indicator in aux_info must have a length of N!")
-            }
-        }
-    }
+    # aux_info <- NULL
     
     ########################################################################
     # Bayesian estimation with informative priors
@@ -173,11 +168,16 @@ outcome_type = "binary" # outcome type for the predictor model: either "binary" 
                 )
             } else if (type == "predict") {
                 # model_predict_noaux = stan_model("list_predictor_constrained_logit1.0.stan")
-                if (outcome_type == "binary"){
+                if (predictvar_type == "binary"){
                     stanmodel <- stanmodels$model_predict_cmp
                 } else {
                     stanmodel <- stanmodels$model_predict_cmp_linear
                 }
+                fnew <- as.character(as.formula(formula))
+                fnew[2] <- predictvar
+                fnew = as.formula(paste(fnew[2],fnew[1],fnew[3]))
+                outcome <- c(as.matrix(model.frame(fnew, data0)[, 1]))
+                
                 datlist <- list(
                 N = N, # obs
                 J = J, # number of control items
@@ -192,6 +192,12 @@ outcome_type = "binary" # outcome type for the predictor model: either "binary" 
             } else {
                 # model_misreport_noaux = stan_model("list_misreport_constrained1.0.stan")
                 stanmodel <- stanmodels$model_misreport_cmp
+                
+                fnew <- as.character(as.formula(formula))
+                fnew[2] <- direct_item
+                fnew = as.formula(paste(fnew[2],fnew[1],fnew[3]))
+                direct <- c(as.matrix(model.frame(fnew, data0)[, 1]))
+                
                 datlist <- list(
                 N = N, # obs
                 J = J, # number of control items
@@ -298,6 +304,23 @@ outcome_type = "binary" # outcome type for the predictor model: either "binary" 
             ##############################################
             # I. Auxiliary information
             ##############################################
+            if (is.null(aux_info)){
+                fnew <- as.character(as.formula(formula))
+                fnew[3] <- paste(aux_g,"+",aux_h,"+",fnew[3])
+                g <- model.frame(as.formula(paste(fnew[2],fnew[1],fnew[3])),data0)[,2]
+                h <- model.frame(as.formula(paste(fnew[2],fnew[1],fnew[3])),data0)[,3]
+                h <- h[order(g)]
+                h <- unique(h)
+                h <- h[which(!is.na(h))]
+                g0 <- unique(g)
+                G <- length(g0[which(!is.na(g0))])
+                aux_info <- list(G=G,g=g,h=h)
+            } else {
+                G = aux_info$G
+                h = aux_info$h
+                g = aux_info$g
+            }
+            
             if (type == "outcome") {
                 # model_outcome_aux = stan_model("list_outcome_constrained_aux3.0_autosigma.stan")
                 stanmodel <- stanmodels$model_outcome_aux
@@ -308,17 +331,22 @@ outcome_type = "binary" # outcome type for the predictor model: either "binary" 
                 K = K, # number of covariates
                 X = X, # covariate matrix
                 treat = treat, # treatment indicator
-                G = aux_info$G,
-                h = as.array(aux_info$h),
-                g = aux_info$g
+                G = G,
+                h = as.array(h),
+                g = g
                 )
             } else if (type == "predict") {
                 # model_predict_aux = stan_model("list_predictor_constrained_logit1.0_aux.stan")
-                if (outcome_type == "binary"){
+                if (predictvar_type == "binary"){
                     stanmodel <- stanmodels$model_predict_aux
                 } else {
                     stanmodel <- stanmodels$model_predict_aux_linear
                 }
+                fnew <- as.character(as.formula(formula))
+                fnew[2] <- predictvar
+                fnew = as.formula(paste(fnew[2],fnew[1],fnew[3]))
+                outcome <- c(as.matrix(model.frame(fnew, data0)[, 1]))
+                
                 datlist <- list(
                 N = N, # obs
                 J = J, # number of control items
@@ -327,13 +355,18 @@ outcome_type = "binary" # outcome type for the predictor model: either "binary" 
                 X = X, # covariate matrix
                 treat = treat, # treatment indicator
                 outcome = outcome, # outcome to be predicted
-                G = aux_info$G,
-                h = as.array(aux_info$h),
-                g = aux_info$g
+                G = G,
+                h = as.array(h),
+                g = g
                 )
             } else {
                 # model_misreport_aux = stan_model("list_misreport_constrained1.0_aux.stan")
                 stanmodel <- stanmodels$model_misreport_aux
+                fnew <- as.character(as.formula(formula))
+                fnew[2] <- direct_item
+                fnew = as.formula(paste(fnew[2],fnew[1],fnew[3]))
+                direct <- c(as.matrix(model.frame(fnew, data0)[, 1]))
+                
                 datlist <- list(
                 N = N, # obs
                 J = J, # number of control items
@@ -342,9 +375,9 @@ outcome_type = "binary" # outcome type for the predictor model: either "binary" 
                 X = X, # covariate matrix
                 treat = treat, # treatment indicator
                 direct = direct, # direct item
-                G = aux_info$G,
-                h = as.array(aux_info$h),
-                g = aux_info$g
+                G = G,
+                h = as.array(h),
+                g = g
                 )
             }
             
@@ -475,11 +508,16 @@ outcome_type = "binary" # outcome type for the predictor model: either "binary" 
                     )
                 } else if (type == "predict") {
                     # model_predict_noaux = stan_model("list_predictor_constrained_logit1.0.stan")
-                    if (outcome_type == "binary"){
+                    if (predictvar_type == "binary"){
                         stanmodel <- stanmodels$model_predict_noaux
                     } else {
                         stanmodel <- stanmodels$model_predict_noaux_linear
                     }
+                    fnew <- as.character(as.formula(formula))
+                    fnew[2] <- predictvar
+                    fnew = as.formula(paste(fnew[2],fnew[1],fnew[3]))
+                    outcome <- c(as.matrix(model.frame(fnew, data0)[, 1]))
+                    
                     datlist <- list(
                     N = N, # obs
                     J = J, # number of control items
@@ -492,6 +530,11 @@ outcome_type = "binary" # outcome type for the predictor model: either "binary" 
                 } else {
                     # model_misreport_noaux = stan_model("list_misreport_constrained1.0.stan")
                     stanmodel <- stanmodels$model_misreport_noaux
+                    fnew <- as.character(as.formula(formula))
+                    fnew[2] <- direct_item
+                    fnew = as.formula(paste(fnew[2],fnew[1],fnew[3]))
+                    direct <- c(as.matrix(model.frame(fnew, data0)[, 1]))
+                    
                     datlist <- list(
                     N = N, # obs
                     J = J, # number of control items
@@ -591,8 +634,8 @@ outcome_type = "binary" # outcome type for the predictor model: either "binary" 
                     chains = nchain
                     )
                 }
-                prior_est_mu = summary(stanout)$summary[,1]
-                prior_est_sigma = summary(stanout)$summary[,3]
+                prior_est_mu = rstan::summary(stanout)$summary[,1]
+                prior_est_sigma = rstan::summary(stanout)$summary[,3]
                 if (type == "outcome") {
                     mu_delta0 = prior_est_mu[(K+1):(2*K)]
                     sigma_delta0 = prior_est_sigma[(K+1):(2*K)]
@@ -629,11 +672,16 @@ outcome_type = "binary" # outcome type for the predictor model: either "binary" 
                         )
                     } else if (type == "predict") {
                         # model_predict_infonorm = stan_model("list_predictor_constrained_logit1.0_infonorm.stan")
-                        if (outcome_type == "binary"){
+                        if (predictvar_type == "binary"){
                             stanmodel <- stanmodels$model_predict_infonorm
                         } else {
                             stanmodel <- stanmodels$model_predict_infonorm_linear
                         }
+                        fnew <- as.character(as.formula(formula))
+                        fnew[2] <- predictvar
+                        fnew = as.formula(paste(fnew[2],fnew[1],fnew[3]))
+                        outcome <- c(as.matrix(model.frame(fnew, data0)[, 1]))
+                        
                         datlist <- list(
                         N = N, # obs
                         J = J, # number of control items
@@ -648,6 +696,11 @@ outcome_type = "binary" # outcome type for the predictor model: either "binary" 
                     } else {
                         # model_misreport_infonorm = stan_model("list_misreport_constrained1.0_infonorm.stan")
                         stanmodel <- stanmodels$model_misreport_infonorm
+                        fnew <- as.character(as.formula(formula))
+                        fnew[2] <- direct_item
+                        fnew = as.formula(paste(fnew[2],fnew[1],fnew[3]))
+                        direct <- c(as.matrix(model.frame(fnew, data0)[, 1]))
+                        
                         datlist <- list(
                         N = N, # obs
                         J = J, # number of control items
@@ -776,11 +829,16 @@ outcome_type = "binary" # outcome type for the predictor model: either "binary" 
                         )
                     } else if (type == "predict") {
                         # model_predict_infonorm = stan_model("list_predictor_constrained_logit1.0_infonorm.stan")
-                        if (outcome_type == "binary"){
+                        if (predictvar_type == "binary"){
                             stanmodel <- stanmodels$model_predict_infonorm
                         } else {
                             stanmodel <- stanmodels$model_predict_infonorm_linear
                         }
+                        fnew <- as.character(as.formula(formula))
+                        fnew[2] <- predictvar
+                        fnew = as.formula(paste(fnew[2],fnew[1],fnew[3]))
+                        outcome <- c(as.matrix(model.frame(fnew, data0)[, 1]))
+                        
                         datlist <- list(
                         N = N, # obs
                         J = J, # number of control items
@@ -795,6 +853,11 @@ outcome_type = "binary" # outcome type for the predictor model: either "binary" 
                     } else {
                         # model_misreport_infonorm = stan_model("list_misreport_constrained1.0_infonorm.stan")
                         stanmodel <- stanmodels$model_misreport_infonorm
+                        fnew <- as.character(as.formula(formula))
+                        fnew[2] <- direct_item
+                        fnew = as.formula(paste(fnew[2],fnew[1],fnew[3]))
+                        direct <- c(as.matrix(model.frame(fnew, data0)[, 1]))
+                        
                         datlist <- list(
                         N = N, # obs
                         J = J, # number of control items
@@ -919,11 +982,16 @@ outcome_type = "binary" # outcome type for the predictor model: either "binary" 
                     )
                 } else if (type == "predict") {
                     # model_predict_infonorm = stan_model("list_predictor_constrained_logit1.0_infonorm.stan")
-                    if (outcome_type == "binary"){
+                    if (predictvar_type == "binary"){
                         stanmodel <- stanmodels$model_predict_infonorm
                     } else {
                         stanmodel <- stanmodels$model_predict_infonorm_linear
                     }
+                    fnew <- as.character(as.formula(formula))
+                    fnew[2] <- predictvar
+                    fnew = as.formula(paste(fnew[2],fnew[1],fnew[3]))
+                    outcome <- c(as.matrix(model.frame(fnew, data0)[, 1]))
+                    
                     datlist <- list(
                     N = N, # obs
                     J = J, # number of control items
@@ -938,6 +1006,11 @@ outcome_type = "binary" # outcome type for the predictor model: either "binary" 
                 } else {
                     # model_misreport_infonorm = stan_model("list_misreport_constrained1.0_infonorm.stan")
                     stanmodel <- stanmodels$model_misreport_infonorm
+                    fnew <- as.character(as.formula(formula))
+                    fnew[2] <- direct_item
+                    fnew = as.formula(paste(fnew[2],fnew[1],fnew[3]))
+                    direct <- c(as.matrix(model.frame(fnew, data0)[, 1]))
+                    
                     datlist <- list(
                     N = N, # obs
                     J = J, # number of control items
@@ -1060,11 +1133,16 @@ outcome_type = "binary" # outcome type for the predictor model: either "binary" 
                 )
             } else if (type == "predict") {
                 # model_predict_noaux = stan_model("list_predictor_constrained_logit1.0.stan")
-                if (outcome_type == "binary"){
+                if (predictvar_type == "binary"){
                     stanmodel <- stanmodels$model_predict_noaux
                 } else {
                     stanmodel <- stanmodels$model_predict_noaux_linear
                 }
+                fnew <- as.character(as.formula(formula))
+                fnew[2] <- predictvar
+                fnew = as.formula(paste(fnew[2],fnew[1],fnew[3]))
+                outcome <- c(as.matrix(model.frame(fnew, data0)[, 1]))
+                
                 datlist <- list(
                 N = N, # obs
                 J = J, # number of control items
@@ -1077,6 +1155,11 @@ outcome_type = "binary" # outcome type for the predictor model: either "binary" 
             } else {
                 # model_misreport_noaux = stan_model("list_misreport_constrained1.0.stan")
                 stanmodel <- stanmodels$model_misreport_noaux
+                fnew <- as.character(as.formula(formula))
+                fnew[2] <- direct_item
+                fnew = as.formula(paste(fnew[2],fnew[1],fnew[3]))
+                direct <- c(as.matrix(model.frame(fnew, data0)[, 1]))
+                
                 datlist <- list(
                 N = N, # obs
                 J = J, # number of control items
@@ -1181,8 +1264,19 @@ outcome_type = "binary" # outcome type for the predictor model: either "binary" 
             #### double list II.
             ######################################
             # priors from the first list experiment
-            prior_est_mu = summary(stanout)$summary[,1]
-            prior_est_sigma = summary(stanout)$summary[,3]
+            prior_est_mu = rstan::summary(stanout)$summary[,1]
+            prior_est_sigma = rstan::summary(stanout)$summary[,3]
+            
+            fnew <- as.character(as.formula(formula))
+            fnew[2] <- double_list
+            fnew = as.formula(paste(fnew[2],fnew[1],fnew[3]))
+            
+            double_list <- c(as.matrix(model.frame(fnew, data0)[, 1]))
+            X_doublelist <- model.matrix(fnew, data0)
+            fnew <- as.character(fnew)
+            fnew[3] <- paste(treat0,"+",fnew[3])
+            treat_doublelist <- model.frame(as.formula(paste(fnew[2],fnew[1],fnew[3])),data0)[,2]
+            N_doublelist <- length(double_list)
             
             if (type == "outcome") {
                 mu_psi0 = prior_est_mu[1:K]
@@ -1227,12 +1321,12 @@ outcome_type = "binary" # outcome type for the predictor model: either "binary" 
                 # model_outcome_doublelist = stan_model("list_outcome_constrained3.0_normal_prior.stan")
                 stanmodel <- stanmodels$model_outcome_doublelist
                 datlist <- list(
-                N = N, # obs
+                N = N_doublelist, # obs
                 J = J, # number of control items
-                Y = Y, # number of affirmative answers
+                Y = double_list, # number of affirmative answers
                 K = K, # number of covariates
-                X = X, # covariate matrix
-                treat = treat, # treatment indicator
+                X = X_doublelist, # covariate matrix
+                treat = treat_doublelist, # treatment indicator
                 mu_psi0 = as.array(mu_psi0),
                 sigma_psi0 = as.array(sigma_psi0),
                 mu_delta = as.array(mu_delta),
@@ -1242,18 +1336,23 @@ outcome_type = "binary" # outcome type for the predictor model: either "binary" 
                 )
             } else if (type == "predict") {
                 # model_predict_doublelist = stan_model("list_predictor_constrained_logit1.0_doublelist.stan")
-                if (outcome_type == "binary"){
+                if (predictvar_type == "binary"){
                     stanmodel <- stanmodels$model_predict_doublelist
                 } else {
                     stanmodel <- stanmodels$model_predict_doublelist_linear
                 }
+                fnew <- as.character(as.formula(formula))
+                fnew[2] <- predictvar
+                fnew = as.formula(paste(fnew[2],fnew[1],fnew[3]))
+                outcome <- c(as.matrix(model.frame(fnew, data0)[, 1]))
+                
                 datlist <- list(
-                N = N, # obs
+                N = N_doublelist, # obs
                 J = J, # number of control items
-                Y = Y, # number of affirmative answers
+                Y = double_list, # number of affirmative answers
                 K = K, # number of covariates
-                X = X, # covariate matrix
-                treat = treat, # treatment indicator
+                X = X_doublelist, # covariate matrix
+                treat = treat_doublelist, # treatment indicator
                 outcome = outcome, # outcome to be predicted
                 mu_psi0 = as.array(mu_psi0),
                 sigma_psi0 = as.array(sigma_psi0),
@@ -1271,13 +1370,18 @@ outcome_type = "binary" # outcome type for the predictor model: either "binary" 
             } else {
                 # model_misreport_doublelist = stan_model("list_misreport_constrained_normal_prior2.0.stan")
                 stanmodel <- stanmodels$model_misreport_doublelist
+                fnew <- as.character(as.formula(formula))
+                fnew[2] <- direct_item
+                fnew = as.formula(paste(fnew[2],fnew[1],fnew[3]))
+                direct <- c(as.matrix(model.frame(fnew, data0)[, 1]))
+                
                 datlist <- list(
-                N = N, # obs
+                N = N_doublelist, # obs
                 J = J, # number of control items
-                Y = Y, # number of affirmative answers
+                Y = double_list, # number of affirmative answers
                 K = K, # number of covariates
-                X = X, # covariate matrix
-                treat = treat, # treatment indicator
+                X = X_doublelist, # covariate matrix
+                treat = treat_doublelist, # treatment indicator
                 direct = direct, # direct item
                 mu_psi0 = as.array(mu_psi0),
                 sigma_psi0 = as.array(sigma_psi0),
@@ -1407,11 +1511,16 @@ outcome_type = "binary" # outcome type for the predictor model: either "binary" 
             )
         } else if (type == "predict") {
             # model_predict_noaux = stan_model("list_predictor_constrained_logit1.0.stan")
-            if (outcome_type == "binary"){
+            if (predictvar_type == "binary"){
                 stanmodel <- stanmodels$model_predict_noaux
             } else {
                 stanmodel <- stanmodels$model_predict_noaux_linear
             }
+            fnew <- as.character(as.formula(formula))
+            fnew[2] <- predictvar
+            fnew = as.formula(paste(fnew[2],fnew[1],fnew[3]))
+            outcome <- c(as.matrix(model.frame(fnew, data0)[, 1]))
+            
             datlist <- list(
             N = N, # obs
             J = J, # number of control items
@@ -1424,6 +1533,11 @@ outcome_type = "binary" # outcome type for the predictor model: either "binary" 
         } else {
             # model_misreport_noaux = stan_model("list_misreport_constrained1.0.stan")
             stanmodel <- stanmodels$model_misreport_noaux
+            fnew <- as.character(as.formula(formula))
+            fnew[2] <- direct_item
+            fnew = as.formula(paste(fnew[2],fnew[1],fnew[3]))
+            direct <- c(as.matrix(model.frame(fnew, data0)[, 1]))
+            
             datlist <- list(
             N = N, # obs
             J = J, # number of control items
@@ -1560,8 +1674,8 @@ outcome_type = "binary" # outcome type for the predictor model: either "binary" 
     apply(sampledf, 2, quantile, probs = c((1 - CIsize) / 2, 1 - (1 - CIsize) / 2))
     out$means <- apply(sampledf, 2, mean)
     out$treat = treat
-    out$outcome = outcome
-    out$direct = direct
+    out$predictvar = predictvar
+    # out$direct = direct
     
     return(out)
     

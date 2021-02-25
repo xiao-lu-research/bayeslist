@@ -8,8 +8,6 @@ bayeslist(
   formula,
   data,
   treat,
-  outcome = NULL,
-  direct = NULL,
   J,
   type = "outcome",
   nsim = 1000,
@@ -24,11 +22,15 @@ bayeslist(
   direct_item = NULL,
   double_list = NULL,
   aux_info = NULL,
+  aux_g = NULL,
+  aux_h = NULL,
   cmp_a = NULL,
   cmp_b = NULL,
   conjugate_distance = FALSE,
   conjugate_k = NULL,
-  outcome_type = "binary"
+  predictvar = NULL,
+  predictvar_type = "binary",
+  parallel = TRUE
 )
 }
 \arguments{
@@ -38,10 +40,6 @@ coerced to that class): a symbolic description of the model to be fitted.}
 \item{data}{A data frame containing the variables in the model.}
 
 \item{treat}{Variable name of the treatment.}
-
-\item{outcome}{Variable name of the outcome to be predicted.}
-
-\item{direct}{Direct item for the misreport model.}
 
 \item{J}{Number of control items.}
 
@@ -67,7 +65,11 @@ coerced to that class): a symbolic description of the model to be fitted.}
 
 \item{double_list}{Variable name of the second list.}
 
-\item{aux_info}{Auxiliary information for the informative priors.}
+\item{aux_info}{Auxiliary information for the informative priors. list(G,h,g), where: G (number of subgroups), h (auxiliary information for each subgroup), and g (subgroup indicator). If is.NULL, the following two parameters need to be specified when estimating the model with prior = "auxiliary".}
+
+\item{aux_g}{Auxiliary information for the informative priors: name of the variable containing information of prevalence for each group}
+
+\item{aux_h}{Auxiliary information for the informative priors: name of the variable indicating the group of each observation.}
 
 \item{cmp_a}{The first parameter for the CMP prior, indicating the prior number of affirmative answers to the sensitive item.}
 
@@ -77,9 +79,13 @@ coerced to that class): a symbolic description of the model to be fitted.}
 
 \item{conjugate_k}{Degrees of freedom to be scaled by conjugate distance prior. The default is NULL.}
 
-\item{outcome_type}{The type of the outcome variable to be predicted. Options include "linear" and "binary". The default is "binary".}
+\item{predictvar}{Variable name of the outcome to be predicted.}
+
+\item{predictvar_type}{The type of the outcome variable to be predicted. Options include "linear" and "binary". The default is "binary".}
 
 \item{only_vb.}{Logic. If TRUE, only variational approximation will be calculated. The default is FALSE.}
+
+\item{parallel.}{Logic. Indicating whether to do paralell computing. The default is TRUE.}
 }
 \value{
 A \code{bayeslist} object. An object of class \code{bayeslist} contains the following elements
