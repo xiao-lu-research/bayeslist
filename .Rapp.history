@@ -1,0 +1,15 @@
+library(rstan)
+?stan
+tmp = 0#
+for (i in 1:21){#
+  print(dim(combn(1:21,i)))#
+  tmp = tmp + dim(combn(1:21,i))[2]#
+}#
+tmp
+max(1,2,3,4)
+max(1,2,3,6)
+exp(8)
+(1/2)^4
+(1/2)^5
+setwd("/Users/dou2/OneDrive - tum.de/_project_2/list experiment/package/bayeslist")
+devtools::document()
