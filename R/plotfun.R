@@ -55,13 +55,14 @@ logistic <- function (x) exp(x)/(1 + exp(x))
 #'
 #'
 plot_prevalence.bayeslist <- function(object,covariate_names = NULL, only_prev = FALSE, xlim = NULL, inverse = FALSE, digit = 3,...){
-  opar <- par()
+  old.par = par(no.readonly = TRUE)
+  on.exit(par(old.par))
   if (object$npars == 1){
     only_prev = TRUE
     warning("No covariates found. Plot prevalence only.")
   }
   # Data preparation
-  color1 = rgb(166,165,166,max = 255, alpha = 100)
+  color1 = rgb(166,165,166,maxColorValue = 255, alpha = 100)
   # color2 = rgb(235,165,65,max = 255, alpha = 100)
   if (inverse == FALSE){
     tmp = object$X %*% t(object$sampledf[,grep("delta",names(object$sampledf))])
@@ -137,7 +138,6 @@ plot_prevalence.bayeslist <- function(object,covariate_names = NULL, only_prev =
     axis(side = 1,tick = T)
     mtext("Coefficient Estimates", 1,line = 2)
   }
-  par(opar)
 }
 #' Trace plots for bayeslist
 #'

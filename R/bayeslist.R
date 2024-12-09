@@ -67,40 +67,48 @@
 #'
 #' }
 #'
-#' @references Lu, X. and Traunmüller, R. (2021). Improving Studies of Sensitive Topics Using Prior Evidence: A Unified Bayesian Framework for List Experiments.
+#' @references Lu, X. and Traunmüller, R. (2021). Improving Studies of Sensitive Topics Using Prior Evidence: A Unified Bayesian Framework for List Experiments, SSRN, \doi{10.2139/ssrn.3871089}.
 #'
 #' @import Formula
 #' @import rstan
+#' @import rstantools
 #'
 #' @importFrom stats coef model.frame model.matrix quantile as.formula binomial density glm sd
 #'
 #' @export
 #'
 #' @examples
-#'\dontrun{
 #'# Estimate sensitive item outcome model using Sri Lanka data on male sexual violence
 #'# Load Sri Lanka list experiment data
 #'data(srilanka)
 #'
 #'# Model 1: intercept-only outcome model without prior information:
-#'mod1 <- bayeslist(sexaussault ~ 1, data = srilanka, treat = "treatment", J = 3, type = "outcome", nsim = 2000, thin = 1, CIsize = 0.95, nchain = 2, seeds = 342321, prior = NULL, parallel = T)
+#'mod1 <- bayeslist(sexaussault ~ 1, data = srilanka, treat = "treatment", J = 3,
+#'type = "outcome", nsim = 200, thin = 1, CIsize = 0.95, nchain = 1,
+#'seeds = 342321, prior = NULL, parallel = TRUE)
 #'summary(mod1) # summary of estimates
 #'predict(mod1) # predicted prevalence for each observation
 #'plot(mod1,"trace") # trace plot
 #'plot(mod1,"coef") # coefficient plot
 #'plot(mod1, only_prev = TRUE) # prevalence plot
 #'
+#'\donttest{
 #'# Model 2: multivariate outcome model without prior information:
-#'mod2 <- bayeslist(sexaussault ~ age + edu, data = srilanka, treat = "treatment", J = 3, type = "outcome", nsim = 2000, thin = 1, CIsize = 0.95, nchain = 2, seeds = 342321, prior = NULL, parallel = T)
+#'mod2 <- bayeslist(sexaussault ~ age + edu, data = srilanka, treat = "treatment", J = 3,
+#'type = "outcome", nsim = 200, thin = 1, CIsize = 0.95, nchain = 1,
+#'seeds = 342321, prior = NULL, parallel = TRUE)
 #'summary(mod2) # summary of estimates
 #'predict(mod2) # predicted prevalence for each observation
 #'plot(mod2,"trace") # trace plot
 #'plot(mod2,"coef") # coefficient plot
 #'plot(mod2) # prevalence + coefficient plot
 #'
-#'# Model 3: intercept-only outcome model with prior information from medicolegal reports, i.e., with a prior beta-logistic distribution BL(38, 146).
+#'# Model 3: intercept-only outcome model with prior information from medicolegal reports, i.e.,
+#'# with a prior beta-logistic distribution BL(38, 146).
 #' a <- 38; b <-146
-#'mod3 <- bayeslist(sexaussault ~ 1, data = srilanka, treat = "treatment", J = 3, type = "outcome", nsim = 2000, thin = 1, CIsize = 0.95, nchain = 2, seeds = 342321, prior = "BL", BL_a = a, BL_b = b,, parallel = T)
+#'mod3 <- bayeslist(sexaussault ~ 1, data = srilanka, treat = "treatment", J = 3,
+#'type = "outcome", nsim = 200, thin = 1, CIsize = 0.95, nchain = 1,
+#'seeds = 342321, prior = "BL", BL_a = a, BL_b = b,, parallel = TRUE)
 #'summary(mod3)
 #'predict(mod3)
 #'plot(mod3,"trace")
@@ -110,7 +118,9 @@
 #'# Model 4: multivariate outcome model with prior information from a direct item.
 #'# Load London list experiment data
 #'data(london)
-#'mod4 <- bayeslist(listCount ~ agegrp + gender + social_grade + qual,data = london, J = 4,treat = "listTreat", seeds = 4597, nsim = 500, nchain = 2, prior = "direct_item", direct_item = "baselineTurnout")
+#'mod4 <- bayeslist(listCount ~ agegrp + gender + social_grade + qual,data = london, J = 4,
+#'treat = "listTreat", seeds = 4597, nsim = 200, nchain = 1,
+#'prior = "direct_item", direct_item = "baselineTurnout")
 #'summary(mod4)
 #'predict(mod4)
 #'plot(mod4,"trace")
@@ -358,8 +368,8 @@ bayeslist <- function(formula,
           seed = seeds
         ),silent = T)
 
-        if (class(stanvb) == "try-error"){
-          print("Variational inference fails! Proceed to direct sampling.")
+        if (inherits(stanvb, "try-error")){
+          warning("Variational inference fails! Proceed to direct sampling.")
         } else{
           initvalues = summary(stanvb)$summary[,1]
         }
@@ -393,7 +403,7 @@ bayeslist <- function(formula,
           }
         }
 
-        if (class(stanvb) == "try-error"){
+        if (inherits(stanvb, "try-error")){
           stanout <- sampling(
             stanmodel,
             data = datlist,
@@ -425,7 +435,7 @@ bayeslist <- function(formula,
           seed = seeds
         ),silent = T)
 
-        if (class(stanvb) == "try-error"){
+        if (inherits(stanvb, "try-error")){
           stop("Variational inference failed!")
         }
         stanout <- stanvb
@@ -545,8 +555,8 @@ bayeslist <- function(formula,
           seed = seeds
         ),silent = T)
 
-        if (class(stanvb) == "try-error"){
-          print("Variational inference fails! Proceed to direct sampling.")
+        if (inherits(stanvb, "try-error")){
+          warning("Variational inference fails! Proceed to direct sampling.")
         } else{
           initvalues = summary(stanvb)$summary[,1]
         }
@@ -585,7 +595,7 @@ bayeslist <- function(formula,
 
         ####################################################
         # direct sampling when variational inference fails
-        if (class(stanvb) == "try-error"){
+        if (inherits(stanvb, "try-error")){
           stanout <- sampling(
             stanmodel,
             data = datlist,
@@ -617,7 +627,7 @@ bayeslist <- function(formula,
           seed = seeds
         ),silent = T)
 
-        if (class(stanvb) == "try-error"){
+        if (inherits(stanvb, "try-error")){
           stop("Variational inference failed!")
         }
         stanout <- stanvb
@@ -734,8 +744,8 @@ bayeslist <- function(formula,
             seed = seeds
           ),silent = T)
 
-          if (class(stanvb) == "try-error"){
-            print("Variational inference failed! Proceed to direct sampling.")
+          if (inherits(stanvb, "try-error")){
+            warning("Variational inference failed! Proceed to direct sampling.")
           } else{
             initvalues = summary(stanvb)$summary[,1]
           }
@@ -768,7 +778,7 @@ bayeslist <- function(formula,
               )
             }
           }
-          if (class(stanvb) == "try-error"){
+          if (inherits(stanvb, "try-error")){
             stanout <- sampling(
               stanmodel,
               data = datlist,
@@ -800,7 +810,7 @@ bayeslist <- function(formula,
             seed = seeds
           ),silent = T)
 
-          if (class(stanvb) == "try-error"){
+          if (inherits(stanvb, "try-error")){
             stop("Variational inference failed!")
           }
           stanout <- stanvb
@@ -914,8 +924,8 @@ bayeslist <- function(formula,
               seed = seeds
             ),silent = T)
 
-            if (class(stanvb) == "try-error"){
-              print("Variational inference fails! Proceed to direct sampling.")
+            if (inherits(stanvb, "try-error")){
+              warning("Variational inference fails! Proceed to direct sampling.")
             } else{
               initvalues = summary(stanvb)$summary[,1]
             }
@@ -949,7 +959,7 @@ bayeslist <- function(formula,
               }
             }
 
-            if (class(stanvb) == "try-error"){
+            if (inherits(stanvb, "try-error")){
               stanout <- sampling(
                 stanmodel,
                 data = datlist,
@@ -981,7 +991,7 @@ bayeslist <- function(formula,
               seed = seeds
             ),silent = T)
 
-            if (class(stanvb) == "try-error"){
+            if (inherits(stanvb, "try-error")){
               stop("Variational inference failed!")
             }
             stanout <- stanvb
@@ -1083,8 +1093,8 @@ bayeslist <- function(formula,
               seed = seeds
             ),silent = T)
 
-            if (class(stanvb) == "try-error"){
-              print("Variational inference fails! Proceed to direct sampling.")
+            if (inherits(stanvb, "try-error")){
+              warning("Variational inference fails! Proceed to direct sampling.")
             } else{
               initvalues = summary(stanvb)$summary[,1]
             }
@@ -1118,7 +1128,7 @@ bayeslist <- function(formula,
               }
             }
 
-            if (class(stanvb) == "try-error"){
+            if (inherits(stanvb, "try-error")){
               stanout <- sampling(
                 stanmodel,
                 data = datlist,
@@ -1150,7 +1160,7 @@ bayeslist <- function(formula,
               seed = seeds
             ),silent = T)
 
-            if (class(stanvb) == "try-error"){
+            if (inherits(stanvb, "try-error")){
               stop("Variational inference failed!")
             }
             stanout <- stanvb
@@ -1248,8 +1258,8 @@ bayeslist <- function(formula,
             seed = seeds
           ),silent = T)
 
-          if (class(stanvb) == "try-error"){
-            print("Variational inference fails! Proceed to direct sampling.")
+          if (inherits(stanvb, "try-error")){
+            warning("Variational inference fails! Proceed to direct sampling.")
           } else{
             initvalues = summary(stanvb)$summary[,1]
           }
@@ -1283,7 +1293,7 @@ bayeslist <- function(formula,
             }
           }
 
-          if (class(stanvb) == "try-error"){
+          if (inherits(stanvb, "try-error")){
             stanout <- sampling(
               stanmodel,
               data = datlist,
@@ -1315,7 +1325,7 @@ bayeslist <- function(formula,
             seed = seeds
           ),silent = T)
 
-          if (class(stanvb) == "try-error"){
+          if (inherits(stanvb, "try-error")){
             stop("Variational inference failed!")
           }
           stanout <- stanvb
@@ -1405,8 +1415,8 @@ bayeslist <- function(formula,
           seed = seeds
         ),silent = T)
 
-        if (class(stanvb) == "try-error"){
-          print("Variational inference fails! Proceed to direct sampling.")
+        if (inherits(stanvb, "try-error")){
+          warning("Variational inference fails! Proceed to direct sampling.")
         } else{
           initvalues = summary(stanvb)$summary[,1]
         }
@@ -1440,7 +1450,7 @@ bayeslist <- function(formula,
           }
         }
 
-        if (class(stanvb) == "try-error"){
+        if (inherits(stanvb, "try-error")){
           stanout <- sampling(
             stanmodel,
             data = datlist,
@@ -1472,7 +1482,7 @@ bayeslist <- function(formula,
           seed = seeds
         ),silent = T)
 
-        if (class(stanvb) == "try-error"){
+        if (inherits(stanvb, "try-error")){
           stop("Variational inference failed!")
         }
         stanout <- stanvb
@@ -1644,8 +1654,8 @@ bayeslist <- function(formula,
           seed = seeds
         ),silent = T)
 
-        if (class(stanvb) == "try-error"){
-          print("Variational inference fails! Proceed to direct sampling.")
+        if (inherits(stanvb, "try-error")){
+          warning("Variational inference fails! Proceed to direct sampling.")
         } else{
           initvalues = summary(stanvb)$summary[,1]
         }
@@ -1679,7 +1689,7 @@ bayeslist <- function(formula,
           }
         }
 
-        if (class(stanvb) == "try-error"){
+        if (inherits(stanvb, "try-error")){
           stanout <- sampling(
             stanmodel,
             data = datlist,
@@ -1711,7 +1721,7 @@ bayeslist <- function(formula,
           seed = seeds
         ),silent = T)
 
-        if (class(stanvb) == "try-error"){
+        if (inherits(stanvb, "try-error")){
           stop("Variational inference failed!")
         }
         stanout <- stanvb
@@ -1877,8 +1887,8 @@ bayeslist <- function(formula,
         seed = seeds
       ),silent = T)
 
-      if (class(stanvb) == "try-error"){
-        print("Variational inference fails! Proceed to direct sampling.")
+      if (inherits(stanvb, "try-error")){
+        warning("Variational inference fails! Proceed to direct sampling.")
       } else{
         initvalues = summary(stanvb)$summary[,1]
       }
@@ -1912,7 +1922,7 @@ bayeslist <- function(formula,
         }
       }
 
-      if (class(stanvb) == "try-error"){
+      if (inherits(stanvb, "try-error")){
         stanout <- sampling(
           stanmodel,
           data = datlist,
@@ -1944,7 +1954,7 @@ bayeslist <- function(formula,
         seed = seeds
       ),silent = T)
 
-      if (class(stanvb) == "try-error"){
+      if (inherits(stanvb, "try-error")){
         stop("Variational inference failed!")
       }
       stanout <- stanvb

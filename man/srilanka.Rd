@@ -21,17 +21,17 @@ displace \tab integer \tab Displacement. \cr
 }
 \description{
 This dataset, which includes male respondents from Tamil, is a subset of the list experiment administered in Sri Lanka on wartime sexual violence.The main question reads as follows:
-\verb{Now we would like to ask you some more questions about what happened during the war. Please refer to the following list and tell me how many of these experiences happened to you during the war. Please don’t tell me which specific statements you believe to be true, only how many:
-(1) I won money in a lottery or competition.;
+Now we would like to ask you some more questions about what happened during the war.
+Please refer to the following list and tell me how many of these experiences happened to you during the war.
+Please don’t tell me which specific statements you believe to be true, only how many:
+(1) I won money in a lottery or competition;
 (2) I was involved in an accident;
 (3) I received help from a stranger;
-(4) (I was personally sexually assaulted.)}
-}
-\details{
+(4) (I was personally sexually assaulted.)
 The forth item in bracket is the sensitive item.
 In addition to the above list, there are also two direct questions asking about sexual abuse.
 }
 \references{
-Traunmüller, R., Kijewski, S., & Freitag, M. (2019). The silent victims of sexual violence during war: Evidence from a list experiment in Sri Lanka. Journal of conflict resolution, 63(9), 2015-2042. \url{https://doi.org/10.1177/0022002719828053}
+Traunmüller, R., Kijewski, S., & Freitag, M. (2019). The silent victims of sexual violence during war: Evidence from a list experiment in Sri Lanka. Journal of conflict resolution, 63(9), 2015-2042. \doi{10.1177/0022002719828053}
 }
 \keyword{datasets}

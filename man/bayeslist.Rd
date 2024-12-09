@@ -135,30 +135,37 @@ The main function for estimating Bayesian sensitive item models.
 The function returns a \code{bayeslist} object that can be further investigated using standard functions such as \code{summary}, \code{plot}, \code{print}, \code{predict}, and \code{coef}. The model can be passed using a \code{formula} as in \code{lm()}. Convergence diagnotics can be performed using either \code{print(object, "mcmc")} or \code{plot(object, "trace")}.
 }
 \examples{
-\dontrun{
 # Estimate sensitive item outcome model using Sri Lanka data on male sexual violence
 # Load Sri Lanka list experiment data
 data(srilanka)
 
 # Model 1: intercept-only outcome model without prior information:
-mod1 <- bayeslist(sexaussault ~ 1, data = srilanka, treat = "treatment", J = 3, type = "outcome", nsim = 2000, thin = 1, CIsize = 0.95, nchain = 2, seeds = 342321, prior = NULL, parallel = T)
+mod1 <- bayeslist(sexaussault ~ 1, data = srilanka, treat = "treatment", J = 3,
+type = "outcome", nsim = 200, thin = 1, CIsize = 0.95, nchain = 1,
+seeds = 342321, prior = NULL, parallel = TRUE)
 summary(mod1) # summary of estimates
 predict(mod1) # predicted prevalence for each observation
 plot(mod1,"trace") # trace plot
 plot(mod1,"coef") # coefficient plot
 plot(mod1, only_prev = TRUE) # prevalence plot
 
+\donttest{
 # Model 2: multivariate outcome model without prior information:
-mod2 <- bayeslist(sexaussault ~ age + edu, data = srilanka, treat = "treatment", J = 3, type = "outcome", nsim = 2000, thin = 1, CIsize = 0.95, nchain = 2, seeds = 342321, prior = NULL, parallel = T)
+mod2 <- bayeslist(sexaussault ~ age + edu, data = srilanka, treat = "treatment", J = 3,
+type = "outcome", nsim = 200, thin = 1, CIsize = 0.95, nchain = 1,
+seeds = 342321, prior = NULL, parallel = TRUE)
 summary(mod2) # summary of estimates
 predict(mod2) # predicted prevalence for each observation
 plot(mod2,"trace") # trace plot
 plot(mod2,"coef") # coefficient plot
 plot(mod2) # prevalence + coefficient plot
 
-# Model 3: intercept-only outcome model with prior information from medicolegal reports, i.e., with a prior beta-logistic distribution BL(38, 146).
+# Model 3: intercept-only outcome model with prior information from medicolegal reports, i.e.,
+# with a prior beta-logistic distribution BL(38, 146).
 a <- 38; b <-146
-mod3 <- bayeslist(sexaussault ~ 1, data = srilanka, treat = "treatment", J = 3, type = "outcome", nsim = 2000, thin = 1, CIsize = 0.95, nchain = 2, seeds = 342321, prior = "BL", BL_a = a, BL_b = b,, parallel = T)
+mod3 <- bayeslist(sexaussault ~ 1, data = srilanka, treat = "treatment", J = 3,
+type = "outcome", nsim = 200, thin = 1, CIsize = 0.95, nchain = 1,
+seeds = 342321, prior = "BL", BL_a = a, BL_b = b,, parallel = TRUE)
 summary(mod3)
 predict(mod3)
 plot(mod3,"trace")
@@ -168,7 +175,9 @@ plot(mod3, only_prev = TRUE)
 # Model 4: multivariate outcome model with prior information from a direct item.
 # Load London list experiment data
 data(london)
-mod4 <- bayeslist(listCount ~ agegrp + gender + social_grade + qual,data = london, J = 4,treat = "listTreat", seeds = 4597, nsim = 500, nchain = 2, prior = "direct_item", direct_item = "baselineTurnout")
+mod4 <- bayeslist(listCount ~ agegrp + gender + social_grade + qual,data = london, J = 4,
+treat = "listTreat", seeds = 4597, nsim = 200, nchain = 1,
+prior = "direct_item", direct_item = "baselineTurnout")
 summary(mod4)
 predict(mod4)
 plot(mod4,"trace")
@@ -178,5 +187,5 @@ plot(mod4)
 
 }
 \references{
-Lu, X. and Traunmüller, R. (2021). Improving Studies of Sensitive Topics Using Prior Evidence: A Unified Bayesian Framework for List Experiments.
+Lu, X. and Traunmüller, R. (2021). Improving Studies of Sensitive Topics Using Prior Evidence: A Unified Bayesian Framework for List Experiments, SSRN, \doi{10.2139/ssrn.3871089}.
 }

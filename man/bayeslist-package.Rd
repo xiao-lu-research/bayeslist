@@ -7,6 +7,12 @@
 \description{
 Estimate list experiment data applying full Bayesian approaches.
 }
-\references{
-Stan Development Team (2018). RStan: the R interface to Stan. R package version 2.18.2. https://mc-stan.org
+\author{
+\strong{Maintainer}: Xiao Lu \email{xiao.lu.research@gmail.com}
+
+Authors:
+\itemize{
+  \item Richard Traunmüller
+}
+
 }
