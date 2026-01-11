@@ -8,9 +8,9 @@
 A data frame containing the following 9 variables for 247 observations.
 
 \tabular{lll}{
-sexaussault \tab integer \tab Reported item count for list experiment question. \cr
-sexaussault_d \tab integer \tab First direct item. \cr
-sexaussault_d2 \tab integer \tab Second direct item. \cr
+sexassault \tab integer \tab Reported item count for list experiment question. \cr
+sexassault_d \tab integer \tab First direct item. \cr
+sexassault_d2 \tab integer \tab Second direct item. \cr
 treatment \tab integer \tab Indicator for list experiment treatment group. \cr
 age \tab numeric \tab Age. \cr
 edu \tab integer \tab Education. \cr
@@ -28,7 +28,7 @@ Please don’t tell me which specific statements you believe to be true, only ho
 (2) I was involved in an accident;
 (3) I received help from a stranger;
 (4) (I was personally sexually assaulted.)
-The forth item in bracket is the sensitive item.
+The fourth item (in brackets) is the sensitive item.
 In addition to the above list, there are also two direct questions asking about sexual abuse.
 }
 \references{

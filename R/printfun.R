@@ -85,7 +85,6 @@ print.bayeslist <- function(x, type = "text", ...) {
 #' @return None.
 #' @seealso \code{\link{print_text.bayeslist}}, \code{\link{print_mcmc.bayeslist}}, \code{\link{print_coef.bayeslist}}.
 #' @method summary bayeslist
-#' @S3method summary bayeslist
 #' @export
 #'
 #'

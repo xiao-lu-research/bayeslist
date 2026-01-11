@@ -14,7 +14,6 @@
 #'
 #' @seealso \code{\link{plot_trace.bayeslist}} and \code{\link{plot_coef.bayeslist}}.
 #' @method plot bayeslist
-#' @S3method plot bayeslist
 #' @export
 #'
 #'

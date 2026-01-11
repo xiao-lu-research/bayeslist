@@ -140,7 +140,7 @@ The function returns a \code{bayeslist} object that can be further investigated 
 data(srilanka)
 
 # Model 1: intercept-only outcome model without prior information:
-mod1 <- bayeslist(sexaussault ~ 1, data = srilanka, treat = "treatment", J = 3,
+mod1 <- bayeslist(sexassault ~ 1, data = srilanka, treat = "treatment", J = 3,
 type = "outcome", nsim = 200, thin = 1, CIsize = 0.95, nchain = 1,
 seeds = 342321, prior = NULL, parallel = TRUE)
 summary(mod1) # summary of estimates
@@ -151,7 +151,7 @@ plot(mod1, only_prev = TRUE) # prevalence plot
 
 \donttest{
 # Model 2: multivariate outcome model without prior information:
-mod2 <- bayeslist(sexaussault ~ age + edu, data = srilanka, treat = "treatment", J = 3,
+mod2 <- bayeslist(sexassault ~ age + edu, data = srilanka, treat = "treatment", J = 3,
 type = "outcome", nsim = 200, thin = 1, CIsize = 0.95, nchain = 1,
 seeds = 342321, prior = NULL, parallel = TRUE)
 summary(mod2) # summary of estimates
@@ -163,7 +163,7 @@ plot(mod2) # prevalence + coefficient plot
 # Model 3: intercept-only outcome model with prior information from medicolegal reports, i.e.,
 # with a prior beta-logistic distribution BL(38, 146).
 a <- 38; b <-146
-mod3 <- bayeslist(sexaussault ~ 1, data = srilanka, treat = "treatment", J = 3,
+mod3 <- bayeslist(sexassault ~ 1, data = srilanka, treat = "treatment", J = 3,
 type = "outcome", nsim = 200, thin = 1, CIsize = 0.95, nchain = 1,
 seeds = 342321, prior = "BL", BL_a = a, BL_b = b,, parallel = TRUE)
 summary(mod3)

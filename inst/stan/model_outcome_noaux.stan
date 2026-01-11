@@ -19,10 +19,10 @@ functions{
 data {
 	int N;
 	int J; //number of non sensitive item
-	int<lower = 0> Y[N]; // number of affirmative answers
+	array[N] int<lower = 0> Y; // number of affirmative answers
 	int K;
 	matrix[N,K] X;
-	int treat[N];
+	array[N] int treat;
 }
 
 
@@ -61,3 +61,4 @@ model{
 
 
 }
+

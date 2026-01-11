@@ -1,6 +1,6 @@
 Package: bayeslist
 Title: Bayesian Analysis of List Experiments with Prior Information
-Version: 0.0.1.4
+Version: 0.0.1.6
 Author: Xiao Lu [aut, cre], Richard Traunmüller [aut]
 Authors@R: c(person(given = "Xiao",
                     family = "Lu",
@@ -16,7 +16,7 @@ Encoding: UTF-8
 LazyData: true
 Biarch: true
 Depends: 
-    R (>= 3.4.0)
+    R (>= 3.5.0)
 Imports: 
     methods,
     Formula,
@@ -32,4 +32,4 @@ LinkingTo:
     rstan (>= 2.18.1),
     StanHeaders (>= 2.18.0)
 SystemRequirements: GNU make
-RoxygenNote: 7.3.2
+RoxygenNote: 7.3.3
