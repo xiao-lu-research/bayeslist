@@ -24,13 +24,13 @@ functions{
 data {
 	int N;
 	int J; //number of non sensitive item
-	int<lower = 0> Y[N]; // number of affirmative answers
+	array[N] int<lower = 0> Y; // number of affirmative answers
 	int K;
 	matrix[N,K] X;
-	int treat[N];
-	real outcome[N];
-	real<lower = 0> a[K];
-	real<lower = 0> b[K];
+	array[N] int treat;
+	array[N] real outcome;
+	array[K] real<lower = 0> a;
+	array[K] real<lower = 0> b;
 }
 
 transformed data{

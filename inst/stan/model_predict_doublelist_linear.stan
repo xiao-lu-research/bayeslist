@@ -24,17 +24,17 @@ functions{
 data {
 	int N;
 	int J; //number of non sensitive item
-	int<lower = 0> Y[N]; // number of affirmative answers
+	array[N] int<lower = 0> Y; // number of affirmative answers
 	int K;
 	matrix[N,K] X;
-	int treat[N];
-	real outcome[N];
-	real mu_delta[K];
-	real<lower = 0> sigma_delta[K];
-	real mu_psi0[K];
-	real<lower = 0> sigma_psi0[K];
-	real mu_psi2[K];
-	real<lower = 0> sigma_psi2[K];
+	array[N] int treat;
+	array[N] real outcome;
+	array[K] real mu_delta;
+	array[K] real<lower = 0> sigma_delta;
+	array[K] real mu_psi0;
+	array[K] real<lower = 0> sigma_psi0;
+	array[K] real mu_psi2;
+	array[K] real<lower = 0> sigma_psi2;
 	real mu_rho0;
 	real<lower = 0> sigma_rho0;
 	real mu_phi;

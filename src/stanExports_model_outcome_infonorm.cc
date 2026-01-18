@@ -7,7 +7,7 @@ using namespace Rcpp ;
 RCPP_MODULE(stan_fit4model_outcome_infonorm_mod) {
 
 
-    class_<rstan::stan_fit<stan_model, boost::random::ecuyer1988> >("model_model_outcome_infonorm")
+    class_<rstan::stan_fit<stan_model, boost::random::ecuyer1988> >("rstantools_model_model_outcome_infonorm")
 
     .constructor<SEXP,SEXP,SEXP>()
 

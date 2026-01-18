@@ -19,10 +19,11 @@ functions{
 data {
 	int N;
 	int J; //number of non sensitive item
-	int<lower = 0> Y[N]; // number of affirmative answers
+	array[N] int<lower = 0> Y; // number of affirmative answers
 	int K;
 	matrix[N,K] X;
-	int treat[N];
+	array[N] int treat;
+	real sigma0;
 }
 
 
@@ -36,13 +37,8 @@ parameters {
 
 model{
 
-
-
-	psi0 ~ normal(0,10); // priors subject to modification
-
-	
-	delta  ~ normal(0,10); // priors subject to modification
-	
+	psi0 ~ normal(0,sigma0); // priors subject to modification	
+	delta  ~ normal(0,sigma0); // priors subject to modification
 	
 
 	for (i in 1:N){

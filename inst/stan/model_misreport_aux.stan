@@ -17,7 +17,7 @@ functions{
 		return(beta_binomial_lpmf(y|J,alpha,beta));
 	}
 
-  int group_size(int[] ref, int value) {
+  int group_size(array[] int ref, int value) {
     int count;
     count = 0;
     for (ii in 1:size(ref))
@@ -26,7 +26,7 @@ functions{
       return count;
   }
 
-  matrix subset_matrix(matrix y, int k, int[] ref, int value) {
+  matrix subset_matrix(matrix y, int k, array[] int ref, int value) {
     int jj;
     matrix[group_size(ref, value),k] res;
     jj = 1;
@@ -47,14 +47,14 @@ functions{
 data {
 	int N;
 	int J; //number of non sensitive item
-	int<lower = 0> Y[N]; // number of affirmative answers
+	array[N] int<lower = 0> Y; // number of affirmative answers
 	int K;
 	matrix[N,K] X;
-	int treat[N];
-	int direct[N];
+	array[N] int treat;
+	array[N] int direct;
 	int G; // number of subgroups
-	real h[G]; // auxiliary information for subgroups
-	int g[N]; // subgroup indicators
+	array[G] real h; // auxiliary information for subgroups
+	array[N] int g; // subgroup indicators
 }
 
 transformed data{

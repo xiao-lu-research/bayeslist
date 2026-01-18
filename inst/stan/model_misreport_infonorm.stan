@@ -23,13 +23,15 @@ functions{
 data {
 	int N;
 	int J; //number of non sensitive item
-	int<lower = 0> Y[N]; // number of affirmative answers
+	array[N] int<lower = 0> Y; // number of affirmative answers
 	int K;
 	matrix[N,K] X;
-	int treat[N];
-	int direct[N];
-	real mu_delta[K];
-	real<lower = 0> sigma_delta[K];
+	array[N] int treat;
+	array[N] int direct;
+	array[K] real mu_delta;
+	array[K] real<lower = 0> sigma_delta;
+	array[K] real mu_gamma;
+	array[K] real<lower = 0> sigma_gamma;
 }
 
 transformed data{
@@ -51,7 +53,7 @@ parameters {
 
 model{
 
-	gamma0 ~ normal(0,10); // priors subject to modification
+	
 	psi0  ~ normal(0,10); // priors subject to modification
 	treat_e  ~ normal(0,10); // priors subject to modification
 	U_e  ~ normal(0,10); // priors subject to modification
@@ -59,6 +61,7 @@ model{
 
 	for (i in 1:K){
 		delta[i] ~ normal(mu_delta[i],sigma_delta[i]); // priors subject to modification
+		gamma0[i] ~ normal(mu_gamma[i],sigma_gamma[i]); // priors subject to modification
 	}
 
 	for (i in 1:N){

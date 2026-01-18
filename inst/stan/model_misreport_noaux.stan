@@ -23,11 +23,12 @@ functions{
 data {
 	int N;
 	int J; //number of non sensitive item
-	int<lower = 0> Y[N]; // number of affirmative answers
+	array[N] int<lower = 0> Y; // number of affirmative answers
 	int K;
 	matrix[N,K] X;
-	int treat[N];
-	int direct[N];
+	array[N] int treat;
+	array[N] int direct;
+	real sigma0;
 }
 
 transformed data{
@@ -36,14 +37,12 @@ transformed data{
 
 parameters {
 	vector[K] psi0; // coefficients of controls without treatment
-	//vector[K] psi1; // coefficients of controls with treatment
 	vector[K] delta; // coefficients of controls on Z
 	vector[K] gamma0; // coefficients of controls on U
 	real treat_e; // effect of treatment on U
 	real U_e; // effect of U on Y*
 	real Z_e; // effect of Z on Y*
 	real<lower = 0, upper = 1> rho0; //variance parameter without treatment
-	//real<lower = 0, upper = 1> rho1; //variance parameter with treatment
 }
 
 
@@ -51,9 +50,8 @@ parameters {
 model{
 
 	gamma0 ~ normal(0,10); // priors subject to modification
-	delta ~ normal(0,10); // priors subject to modification
-	psi0  ~ normal(0,10); // priors subject to modification
-	//psi1  ~ normal(0,10); // priors subject to modification
+	delta ~ normal(0,sigma0); // priors subject to modification
+	psi0  ~ normal(0,sigma0); // priors subject to modification
 	treat_e  ~ normal(0,10); // priors subject to modification
 	U_e  ~ normal(0,10); // priors subject to modification
 	Z_e  ~ normal(0,10); // priors subject to modification

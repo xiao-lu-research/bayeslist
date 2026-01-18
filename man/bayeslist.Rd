@@ -20,22 +20,25 @@ bayeslist(
   only_vb = FALSE,
   prior = NULL,
   direct_item = NULL,
+  direct_item_misreport = NULL,
   double_list = NULL,
+  double_list_treat = NULL,
   aux_info = NULL,
   aux_g = NULL,
   aux_h = NULL,
-  cmp_a = NULL,
-  cmp_b = NULL,
+  BL_a = NULL,
+  BL_b = NULL,
   conjugate_distance = FALSE,
   conjugate_k = NULL,
   predictvar = NULL,
   predictvar_type = "binary",
-  parallel = TRUE
+  parallel = TRUE,
+  robust = FALSE,
+  sigma0 = 10
 )
 }
 \arguments{
-\item{formula}{An object of class "formula" (or one that can be
-coerced to that class): a symbolic description of the model to be fitted.}
+\item{formula}{An object of class "formula" (or one that can be coerced to that class): a symbolic description of the model to be fitted.}
 
 \item{data}{A data frame containing the variables in the model.}
 
@@ -59,21 +62,27 @@ coerced to that class): a symbolic description of the model to be fitted.}
 
 \item{vb}{Logic. If TRUE, variational approximation will be used to supply initial values. The default is FALSE.}
 
-\item{prior}{Prior types. Options include "auxiliary", "double_list", "direct_item", "cmp". If NULL, no informative priors will be used.}
+\item{only_vb}{Logic. If TRUE, only variational approximation will be calculated. The default is FALSE.}
+
+\item{prior}{Prior types. Options include "auxiliary", "double_list", "direct_item", and "BL" for beta-logistic prior. If NULL, no informative priors will be used.}
 
 \item{direct_item}{Variable name of the direct item.}
 
+\item{direct_item_misreport}{Variable name of the direct item for the misreporting model.}
+
 \item{double_list}{Variable name of the second list.}
+
+\item{double_list_treat}{Treatment variable of the second list.}
 
 \item{aux_info}{Auxiliary information for the informative priors. list(G,h,g), where: G (number of subgroups), h (auxiliary information for each subgroup), and g (subgroup indicator). If is.NULL, the following two parameters need to be specified when estimating the model with prior = "auxiliary".}
 
-\item{aux_g}{Auxiliary information for the informative priors: name of the variable containing information of prevalence for each group}
+\item{aux_g}{Auxiliary information for the informative priors: name of the variable indicating the group of each observation.}
 
-\item{aux_h}{Auxiliary information for the informative priors: name of the variable indicating the group of each observation.}
+\item{aux_h}{Auxiliary information for the informative priors: name of the variable containing information of prevalence for each group}
 
-\item{cmp_a}{The first parameter for the CMP prior, indicating the prior number of affirmative answers to the sensitive item.}
+\item{BL_a}{The first shape hyperparameter for the beta-logistic prior, indicating the prior number of affirmative answers to the sensitive item.}
 
-\item{cmp_b}{The second parameter for the CMP prior, indicating the prior number of non-affirmative answers to the sensitive item.}
+\item{BL_b}{The second shape hyperparameter for the beta-logistic prior, indicating the prior number of non-affirmative answers to the sensitive item.}
 
 \item{conjugate_distance}{Logic. Indicating whether conjugate distance prior should be used. The default is FALSE.}
 
@@ -83,9 +92,11 @@ coerced to that class): a symbolic description of the model to be fitted.}
 
 \item{predictvar_type}{The type of the outcome variable to be predicted. Options include "linear" and "binary". The default is "binary".}
 
-\item{only_vb.}{Logic. If TRUE, only variational approximation will be calculated. The default is FALSE.}
+\item{parallel}{Logic. Indicating whether to do paralell computing. The default is TRUE.}
 
-\item{parallel.}{Logic. Indicating whether to do paralell computing. The default is TRUE.}
+\item{robust}{Logic. Indicating whether to impose robust constraints on the intercept-only model. The default is FALSE.}
+
+\item{sigma0}{Standard deviation of the uninformative prior on psi and delta. The default is 10.}
 }
 \value{
 A \code{bayeslist} object. An object of class \code{bayeslist} contains the following elements
@@ -118,16 +129,66 @@ A \code{bayeslist} object. An object of class \code{bayeslist} contains the foll
   \item{\code{treat}}{Treatment.}
   \item{\code{outcome}}{Outcome to be predicted.}
   \item{\code{direct}}{Direct item for the misreport model.}
+  \item{\code{robust}}{Robust indicator.}
 
 }
 }
 \description{
-The main function for running the Bayesian sensitive item models. The function returns a \code{bayeslist} object that can be further investigated using standard functions such as \code{plot}, \code{print}, and \code{coef}. The model can be passed using a \code{formula} as in \code{lm()}. Convergence diagnotics can be performed using either \code{print(object, "mcmc")} or \code{plot(object, "mcmc")}.
+The main function for estimating Bayesian sensitive item models.
+The function returns a \code{bayeslist} object that can be further investigated using standard functions such as \code{summary}, \code{plot}, \code{print}, \code{predict}, and \code{coef}. The model can be passed using a \code{formula} as in \code{lm()}. Convergence diagnotics can be performed using either \code{print(object, "mcmc")} or \code{plot(object, "trace")}.
 }
 \examples{
+# Estimate sensitive item outcome model using Sri Lanka data on male sexual violence
+# Load Sri Lanka list experiment data
+data(srilanka)
 
+# Model 1: intercept-only outcome model without prior information:
+mod1 <- bayeslist(sexassault ~ 1, data = srilanka, treat = "treatment", J = 3,
+type = "outcome", nsim = 200, thin = 1, CIsize = 0.95, nchain = 1,
+seeds = 342321, prior = NULL, parallel = TRUE)
+summary(mod1) # summary of estimates
+predict(mod1) # predicted prevalence for each observation
+plot(mod1,"trace") # trace plot
+plot(mod1,"coef") # coefficient plot
+plot(mod1, only_prev = TRUE) # prevalence plot
+
+\donttest{
+# Model 2: multivariate outcome model without prior information:
+mod2 <- bayeslist(sexassault ~ age + edu, data = srilanka, treat = "treatment", J = 3,
+type = "outcome", nsim = 200, thin = 1, CIsize = 0.95, nchain = 1,
+seeds = 342321, prior = NULL, parallel = TRUE)
+summary(mod2) # summary of estimates
+predict(mod2) # predicted prevalence for each observation
+plot(mod2,"trace") # trace plot
+plot(mod2,"coef") # coefficient plot
+plot(mod2) # prevalence + coefficient plot
+
+# Model 3: intercept-only outcome model with prior information from medicolegal reports, i.e.,
+# with a prior beta-logistic distribution BL(38, 146).
+a <- 38; b <-146
+mod3 <- bayeslist(sexassault ~ 1, data = srilanka, treat = "treatment", J = 3,
+type = "outcome", nsim = 200, thin = 1, CIsize = 0.95, nchain = 1,
+seeds = 342321, prior = "BL", BL_a = a, BL_b = b,, parallel = TRUE)
+summary(mod3)
+predict(mod3)
+plot(mod3,"trace")
+plot(mod3,"coef")
+plot(mod3, only_prev = TRUE)
+
+# Model 4: multivariate outcome model with prior information from a direct item.
+# Load London list experiment data
+data(london)
+mod4 <- bayeslist(listCount ~ agegrp + gender + social_grade + qual,data = london, J = 4,
+treat = "listTreat", seeds = 4597, nsim = 200, nchain = 1,
+prior = "direct_item", direct_item = "baselineTurnout")
+summary(mod4)
+predict(mod4)
+plot(mod4,"trace")
+plot(mod4,"coef")
+plot(mod4)
+}
 
 }
 \references{
-
+Lu, X. and Traunmüller, R. (2026). Improving Studies of Sensitive Topics Using Prior Evidence: An Informative Bayesian Framework for List Experiments, Political Science Research and Methods, \doi{10.1017/psrm.2025.10084}.
 }
