@@ -85,7 +85,7 @@ model{
 		} else if (treat[i] == 1 && direct[i] == 1 && Y[i] > 0){
 			target += log(1 - exp(jd(inv_logit(X[i,] * gamma0 + treat_e)))) + gd(inv_logit(X[i,] * delta)) + h1d(Y[i] - 1,J,inv_logit(X[i,]*psi0 + Z_e)*(1 - rho0)/rho0, (1 - inv_logit(X[i,]*psi0 + Z_e))*(1 - rho0)/rho0);
 		} else {
-			target += 1;
+			reject("Invalid treatment, direct response, or list count at observation ", i);
 		}
 			
 			

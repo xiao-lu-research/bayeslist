@@ -23,7 +23,6 @@ data {
 	int K;
 	matrix[N,K] X;
 	array[N] int treat;
-	real sigma0;
 }
 
 
@@ -37,8 +36,8 @@ parameters {
 
 model{
 
-	psi0 ~ normal(0,sigma0); // priors subject to modification	
-	delta  ~ normal(0,sigma0); // priors subject to modification
+	psi0 ~ normal(0,10); // priors subject to modification
+	delta  ~ normal(0,10); // priors subject to modification
 	
 
 	for (i in 1:N){
