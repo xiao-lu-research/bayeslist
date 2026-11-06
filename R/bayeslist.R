@@ -32,7 +32,6 @@
 #' @param predictvar_type The type of the outcome variable to be predicted. Options include "linear" and "binary". The default is "binary".
 #' @param parallel Logic. Indicating whether to do paralell computing. The default is TRUE.
 #' @param robust Logic. Indicating whether to impose robust constraints on the intercept-only model. The default is FALSE.
-#' @param sigma0 Standard deviation of the uninformative prior on psi and delta. The default is 10.
 #'
 #' @return A \code{bayeslist} object. An object of class \code{bayeslist} contains the following elements
 #'
@@ -158,8 +157,7 @@ bayeslist <- function(formula,
                       predictvar_type = "binary", # outcome type for the predictor model: either "binary" or "linear". The default is binary.
                       # direct = NULL, # data of direct item for the misreport model
                       parallel = TRUE,
-                      robust = FALSE,
-                      sigma0 = 10 # standard deviation of the uninformative prior on coefficients of psi and delta. Default is 10.
+                      robust = FALSE
 ) {
   if (is.null(burnin))
     burnin <- floor(nsim / 2)
@@ -1829,8 +1827,7 @@ bayeslist <- function(formula,
           Y = Y, # number of affirmative answers
           K = K, # number of covariates
           X = X, # covariate matrix
-          treat = treat, # treatment indicator
-          sigma0 = sigma0
+          treat = treat # treatment indicator
         )
       } else if (type == "predict") {
         # model_predict_noaux = stan_model("list_predictor_constrained_logit1.0.stan")
@@ -1851,8 +1848,7 @@ bayeslist <- function(formula,
           K = K, # number of covariates
           X = X, # covariate matrix
           treat = treat, # treatment indicator
-          outcome = outcome, # outcome to be predicted
-          sigma0 = sigma0
+          outcome = outcome # outcome to be predicted
         )
       } else {
         # model_misreport_noaux = stan_model("list_misreport_constrained1.0.stan")
@@ -1869,8 +1865,7 @@ bayeslist <- function(formula,
           K = K, # number of covariates
           X = X, # covariate matrix
           treat = treat, # treatment indicator
-          direct = direct, # direct item
-          sigma0 = sigma0
+          direct = direct # direct item
         )
       }
     }

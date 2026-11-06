@@ -29,7 +29,6 @@ data {
 	matrix[N,K] X;
 	array[N] int treat;
 	array[N] real outcome;
-	real sigma0;
 }
 
 transformed data{
@@ -38,11 +37,13 @@ transformed data{
 
 parameters {
 	vector[K] psi0; // coefficients of controls without treatment
+	// vector[K] psi1; // coefficients of controls with treatment
 	vector[K] psi2; // coefficients of controls on outcome
 	vector[K] delta; // coefficients of controls on Z
 	real gamma0; // coefficient of the sensitive item on outcome
 	real phi; // coefficients of latent number of affirmative answers to controls on outcome
 	real<lower = 0, upper = 1> rho0; //variance parameter without treatment
+	// real<lower = 0, upper = 1> rho1; //variance parameter with treatment
 	real<lower = 0> sigma; // scale parameter for normal outcome
 }
 
@@ -50,9 +51,11 @@ parameters {
 
 model{
 
-	delta ~ normal(0,sigma0); // priors subject to modification
-	psi0  ~ normal(0,sigma0); // priors subject to modification
-	psi2  ~ normal(0,sigma0); // priors subject to modification
+
+
+	delta ~ normal(0,10); // priors subject to modification
+	psi0  ~ normal(0,10); // priors subject to modification
+	psi2  ~ normal(0,10); // priors subject to modification
 	gamma0 ~ normal(0,10);
 	phi ~ normal(0,10);
 	sigma ~ cauchy(0, 2.5);
@@ -73,3 +76,4 @@ model{
 
 
 }
+

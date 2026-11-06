@@ -12,6 +12,29 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 
+RcppExport SEXP _rcpp_module_boot_stan_fit4model_ICT_aux_mod();
+RcppExport SEXP _rcpp_module_boot_stan_fit4model_ICT_aux_nobias_mod();
+RcppExport SEXP _rcpp_module_boot_stan_fit4model_ICT_binomial_diff_means_mod();
+RcppExport SEXP _rcpp_module_boot_stan_fit4model_ICT_binomial_noaux_mod();
+RcppExport SEXP _rcpp_module_boot_stan_fit4model_ICT_doublelist_aux_mod();
+RcppExport SEXP _rcpp_module_boot_stan_fit4model_ICT_doublelist_aux_bias_separate_mod();
+RcppExport SEXP _rcpp_module_boot_stan_fit4model_ICT_doublelist_aux_nobias_mod();
+RcppExport SEXP _rcpp_module_boot_stan_fit4model_ICT_doublelist_binomial_aux_bias_common_mod();
+RcppExport SEXP _rcpp_module_boot_stan_fit4model_ICT_doublelist_binomial_aux_bias_separate_mod();
+RcppExport SEXP _rcpp_module_boot_stan_fit4model_ICT_doublelist_binomial_aux_nobias_mod();
+RcppExport SEXP _rcpp_module_boot_stan_fit4model_ICT_doublelist_binomial_diff_means_mod();
+RcppExport SEXP _rcpp_module_boot_stan_fit4model_ICT_doublelist_binomial_noaux_mod();
+RcppExport SEXP _rcpp_module_boot_stan_fit4model_ICT_doublelist_multinomial_aux_bias_common_mod();
+RcppExport SEXP _rcpp_module_boot_stan_fit4model_ICT_doublelist_multinomial_aux_bias_separate_mod();
+RcppExport SEXP _rcpp_module_boot_stan_fit4model_ICT_doublelist_multinomial_aux_nobias_mod();
+RcppExport SEXP _rcpp_module_boot_stan_fit4model_ICT_doublelist_multinomial_diff_means_mod();
+RcppExport SEXP _rcpp_module_boot_stan_fit4model_ICT_doublelist_multinomial_noaux_mod();
+RcppExport SEXP _rcpp_module_boot_stan_fit4model_ICT_doublelist_noaux_mod();
+RcppExport SEXP _rcpp_module_boot_stan_fit4model_ICT_multinomial_aux_mod();
+RcppExport SEXP _rcpp_module_boot_stan_fit4model_ICT_multinomial_aux_nobias_mod();
+RcppExport SEXP _rcpp_module_boot_stan_fit4model_ICT_multinomial_diff_means_mod();
+RcppExport SEXP _rcpp_module_boot_stan_fit4model_ICT_multinomial_noaux_mod();
+RcppExport SEXP _rcpp_module_boot_stan_fit4model_ICT_noaux_mod();
 RcppExport SEXP _rcpp_module_boot_stan_fit4model_misreport_aux_mod();
 RcppExport SEXP _rcpp_module_boot_stan_fit4model_misreport_cmp_mod();
 RcppExport SEXP _rcpp_module_boot_stan_fit4model_misreport_doublelist_mod();
@@ -34,6 +57,29 @@ RcppExport SEXP _rcpp_module_boot_stan_fit4model_predict_noaux_mod();
 RcppExport SEXP _rcpp_module_boot_stan_fit4model_predict_noaux_linear_mod();
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_rcpp_module_boot_stan_fit4model_ICT_aux_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4model_ICT_aux_mod, 0},
+    {"_rcpp_module_boot_stan_fit4model_ICT_aux_nobias_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4model_ICT_aux_nobias_mod, 0},
+    {"_rcpp_module_boot_stan_fit4model_ICT_binomial_diff_means_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4model_ICT_binomial_diff_means_mod, 0},
+    {"_rcpp_module_boot_stan_fit4model_ICT_binomial_noaux_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4model_ICT_binomial_noaux_mod, 0},
+    {"_rcpp_module_boot_stan_fit4model_ICT_doublelist_aux_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4model_ICT_doublelist_aux_mod, 0},
+    {"_rcpp_module_boot_stan_fit4model_ICT_doublelist_aux_bias_separate_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4model_ICT_doublelist_aux_bias_separate_mod, 0},
+    {"_rcpp_module_boot_stan_fit4model_ICT_doublelist_aux_nobias_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4model_ICT_doublelist_aux_nobias_mod, 0},
+    {"_rcpp_module_boot_stan_fit4model_ICT_doublelist_binomial_aux_bias_common_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4model_ICT_doublelist_binomial_aux_bias_common_mod, 0},
+    {"_rcpp_module_boot_stan_fit4model_ICT_doublelist_binomial_aux_bias_separate_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4model_ICT_doublelist_binomial_aux_bias_separate_mod, 0},
+    {"_rcpp_module_boot_stan_fit4model_ICT_doublelist_binomial_aux_nobias_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4model_ICT_doublelist_binomial_aux_nobias_mod, 0},
+    {"_rcpp_module_boot_stan_fit4model_ICT_doublelist_binomial_diff_means_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4model_ICT_doublelist_binomial_diff_means_mod, 0},
+    {"_rcpp_module_boot_stan_fit4model_ICT_doublelist_binomial_noaux_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4model_ICT_doublelist_binomial_noaux_mod, 0},
+    {"_rcpp_module_boot_stan_fit4model_ICT_doublelist_multinomial_aux_bias_common_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4model_ICT_doublelist_multinomial_aux_bias_common_mod, 0},
+    {"_rcpp_module_boot_stan_fit4model_ICT_doublelist_multinomial_aux_bias_separate_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4model_ICT_doublelist_multinomial_aux_bias_separate_mod, 0},
+    {"_rcpp_module_boot_stan_fit4model_ICT_doublelist_multinomial_aux_nobias_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4model_ICT_doublelist_multinomial_aux_nobias_mod, 0},
+    {"_rcpp_module_boot_stan_fit4model_ICT_doublelist_multinomial_diff_means_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4model_ICT_doublelist_multinomial_diff_means_mod, 0},
+    {"_rcpp_module_boot_stan_fit4model_ICT_doublelist_multinomial_noaux_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4model_ICT_doublelist_multinomial_noaux_mod, 0},
+    {"_rcpp_module_boot_stan_fit4model_ICT_doublelist_noaux_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4model_ICT_doublelist_noaux_mod, 0},
+    {"_rcpp_module_boot_stan_fit4model_ICT_multinomial_aux_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4model_ICT_multinomial_aux_mod, 0},
+    {"_rcpp_module_boot_stan_fit4model_ICT_multinomial_aux_nobias_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4model_ICT_multinomial_aux_nobias_mod, 0},
+    {"_rcpp_module_boot_stan_fit4model_ICT_multinomial_diff_means_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4model_ICT_multinomial_diff_means_mod, 0},
+    {"_rcpp_module_boot_stan_fit4model_ICT_multinomial_noaux_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4model_ICT_multinomial_noaux_mod, 0},
+    {"_rcpp_module_boot_stan_fit4model_ICT_noaux_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4model_ICT_noaux_mod, 0},
     {"_rcpp_module_boot_stan_fit4model_misreport_aux_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4model_misreport_aux_mod, 0},
     {"_rcpp_module_boot_stan_fit4model_misreport_cmp_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4model_misreport_cmp_mod, 0},
     {"_rcpp_module_boot_stan_fit4model_misreport_doublelist_mod", (DL_FUNC) &_rcpp_module_boot_stan_fit4model_misreport_doublelist_mod, 0},
