@@ -1,0 +1,77 @@
+functions{
+
+}
+
+data {
+	int N;
+	int J; //number of non sensitive item
+	array[N] int<lower = 0> Y; // number of affirmative answers
+	int K; // The number of control predictors
+	matrix[N,K] X;
+	array[N] int treat;
+	vector[N] weights; // survey weights
+        array[K] real<lower = 0> sigma_delta; // prior delta standard deviation
+        array[J-1] real<lower = 0> sigma_psiM; // prior psiM standard deviation
+        array[K] real<lower = 0> sigma_psi0; // prior psi0 standard deviation
+}
+
+parameters {
+	ordered[J-1] psiM; // coefficients of controls without treatment
+	vector[K] psi0; // coefficients of controls without treatment
+	vector[K] delta; // coefficients of controls on Z
+}
+
+transformed parameters {
+  real<lower=0, upper=1> pas;
+  pas = dot_product(weights, (inv_logit(X * delta)));
+
+  ordered[J] opsiM; // coefficients of controls without treatment
+//opsiM[1] = psi0[1];
+  opsiM[1] = 0;
+  for (k in 2:J){
+//  opsiM[k] = psiM[k-1] + psi0[1];
+    opsiM[k] = opsiM[k-1] + exp(psiM[k-1]);
+  }
+  vector<lower=0, upper=1>[N] pz; // 
+  for (i in 1:N){
+    pz[i] = inv_logit(X[i,] * delta);
+  }
+}
+
+model{
+
+	psiM  ~ normal(0,sigma_psiM); // prior for the coefficients of controls (with or without treatment)
+	psi0  ~ normal(0,sigma_psi0); // prior for the coefficients of controls (with or without treatment)
+
+// One or the other of these priors
+  	delta ~ normal(0,sigma_delta); // prior for the coefficients of controls on Z
+//	target += log((N+1)/(N-1)) + log(1-(pow(pas, N) + pow(1-pas, N))); // ND prior on pas
+
+	for (i in 1:N){
+	  if (treat[i] == 1 && Y[i] == 0) {
+	    target += log(1 - pz[i]) + ordered_logistic_lupmf( 1 | X[i,] * psi0, opsiM);
+	  } else if (treat[i] == 1 && Y[i] == J + 1){
+	    target += log(    pz[i]) + ordered_logistic_lupmf(J+1| X[i,] * psi0, opsiM);
+	  } else if (treat[i] == 1){
+	    target += log(pz[i]*exp(ordered_logistic_lupmf(Y[i]   | X[i,] * psi0, opsiM)) + (1 - pz[i]) * exp(ordered_logistic_lupmf(Y[i]+1| X[i,] * psi0, opsiM)) );
+	  } else { // no treatment
+	    target += log(pz[i]*exp(ordered_logistic_lupmf(Y[i]+1 | X[i,] * psi0, opsiM)) + (1 - pz[i]) * exp(ordered_logistic_lupmf(Y[i]+1 | X[i,] * psi0, opsiM)) );
+	  }
+	}
+
+}
+
+generated quantities {
+    vector[N] log_lik;
+    for (i in 1:N){
+      if (treat[i] == 1 && Y[i] == 0) {
+        log_lik[i] = log(1 - pz[i]) + ordered_logistic_lpmf( 1 | X[i,] * psi0, opsiM);
+      } else if (treat[i] == 1 && Y[i] == J + 1){
+        log_lik[i] = log(    pz[i]) + ordered_logistic_lpmf(J+1| X[i,] * psi0, opsiM);
+      } else if (treat[i] == 1){
+        log_lik[i] = log(pz[i]*exp(ordered_logistic_lpmf(Y[i]   | X[i,] * psi0, opsiM)) + (1 - pz[i]) * exp(ordered_logistic_lpmf(Y[i]+1| X[i,] * psi0, opsiM)) );
+      } else { // no treatment
+        log_lik[i] = log(pz[i]*exp(ordered_logistic_lpmf(Y[i]+1 | X[i,] * psi0, opsiM)) + (1 - pz[i]) * exp(ordered_logistic_lpmf(Y[i]+1 | X[i,] * psi0, opsiM)) );
+      }
+    }
+} 

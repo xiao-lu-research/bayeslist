@@ -12,7 +12,9 @@ Estimate list experiment data applying full Bayesian approaches.
 
 Authors:
 \itemize{
-  \item Richard Traunmüller
+  \item Xiao Lu \email{xiao.lu.research@gmail.com}
+  \item Richard Traunmüller \email{traunmueller@uni-mannheim.de}
+  \item Mark S. Handcock \email{handcock@stat.ucla.edu} (\href{https://orcid.org/0000-0002-9985-2785}{ORCID})
 }
 
 }

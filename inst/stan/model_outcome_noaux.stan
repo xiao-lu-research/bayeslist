@@ -36,8 +36,13 @@ parameters {
 
 model{
 
+
+
 	psi0 ~ normal(0,10); // priors subject to modification
+
+	
 	delta  ~ normal(0,10); // priors subject to modification
+	
 	
 
 	for (i in 1:N){
@@ -56,3 +61,4 @@ model{
 
 
 }
+
