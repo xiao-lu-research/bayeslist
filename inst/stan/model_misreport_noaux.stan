@@ -28,7 +28,6 @@ data {
 	matrix[N,K] X;
 	array[N] int treat;
 	array[N] int direct;
-	real sigma0;
 }
 
 transformed data{
@@ -50,8 +49,8 @@ parameters {
 model{
 
 	gamma0 ~ normal(0,10); // priors subject to modification
-	delta ~ normal(0,sigma0); // priors subject to modification
-	psi0  ~ normal(0,sigma0); // priors subject to modification
+	delta ~ normal(0,10); // priors subject to modification
+	psi0  ~ normal(0,10); // priors subject to modification
 	treat_e  ~ normal(0,10); // priors subject to modification
 	U_e  ~ normal(0,10); // priors subject to modification
 	Z_e  ~ normal(0,10); // priors subject to modification
@@ -71,7 +70,7 @@ model{
 		} else if (treat[i] == 1 && direct[i] == 1 && Y[i] > 0){
 			target += log(1 - exp(jd(inv_logit(X[i,] * gamma0 + treat_e)))) + gd(inv_logit(X[i,] * delta)) + h1d(Y[i] - 1,J,inv_logit(X[i,]*psi0 + Z_e)*(1 - rho0)/rho0, (1 - inv_logit(X[i,]*psi0 + Z_e))*(1 - rho0)/rho0);
 		} else {
-			target += 1;
+			reject("Invalid treatment, direct response, or list count at observation ", i);
 		}
 			
 			

@@ -29,7 +29,6 @@ data {
 	matrix[N,K] X;
 	array[N] int treat;
 	array[N] real outcome;
-	real sigma0;
 }
 
 transformed data{
@@ -50,9 +49,9 @@ parameters {
 
 model{
 
-	delta ~ normal(0,sigma0); // priors subject to modification
-	psi0  ~ normal(0,sigma0); // priors subject to modification
-	psi2  ~ normal(0,sigma0); // priors subject to modification
+	delta ~ normal(0,10); // priors subject to modification
+	psi0  ~ normal(0,10); // priors subject to modification
+	psi2  ~ normal(0,10); // priors subject to modification
 	gamma0 ~ normal(0,10);
 	phi ~ normal(0,10);
 	sigma ~ cauchy(0, 2.5);

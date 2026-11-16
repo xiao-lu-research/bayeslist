@@ -33,8 +33,7 @@ bayeslist(
   predictvar = NULL,
   predictvar_type = "binary",
   parallel = TRUE,
-  robust = FALSE,
-  sigma0 = 10
+  robust = FALSE
 )
 }
 \arguments{
@@ -95,8 +94,6 @@ bayeslist(
 \item{parallel}{Logic. Indicating whether to do paralell computing. The default is TRUE.}
 
 \item{robust}{Logic. Indicating whether to impose robust constraints on the intercept-only model. The default is FALSE.}
-
-\item{sigma0}{Standard deviation of the uninformative prior on psi and delta. The default is 10.}
 }
 \value{
 A \code{bayeslist} object. An object of class \code{bayeslist} contains the following elements
