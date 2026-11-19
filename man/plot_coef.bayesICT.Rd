@@ -25,6 +25,10 @@ log_lik and lp__ are plotted.}
 \item{label}{If TRUE, try to replace Stan parameter names in the returned
 ggplot object by the same human-readable labels used by coef.bayesICT().}
 
+\item{ci_level}{Probability content of the inner interval.}
+
+\item{outer_level}{Probability content of the outer interval.}
+
 \item{...}{Additional arguments passed to rstan::plot().}
 }
 \value{

@@ -4,12 +4,14 @@
 \alias{bayesICT_summarize_rows}
 \title{Summarize each row of a posterior-draw matrix}
 \usage{
-bayesICT_summarize_rows(draws, type)
+bayesICT_summarize_rows(draws, type, ci = c(0.025, 0.975))
 }
 \arguments{
 \item{draws}{Matrix with observations or quantities in rows and posterior draws in columns.}
 
 \item{type}{Summary type, either "mean" or "median".}
+
+\item{ci}{Length-two vector of posterior interval probabilities.}
 }
 \value{
 A numeric vector of row summaries.

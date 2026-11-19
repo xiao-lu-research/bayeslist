@@ -3,6 +3,7 @@
 #' Create a table of coefficient summaries from a bayesICT object.
 #'
 #' @param object A bayesICT object returned by bayesICT().
+#' @param probs A numeric vector of length two indicating the lower and upper bounds of the marginal posteriors.
 #' @param ... Further arguments; currently unused.
 #'
 #' @return A coefficient-summary matrix with human-readable row names.
@@ -10,8 +11,9 @@
 #' @export
   # Start from the stored Stan summary table, then replace raw Stan
   # parameter names with labels suitable for user-facing output.
-coef.bayesICT <- coefficients.bayesICT <- function(object, ...) {
-  coefmat <- bayesICT_coef_matrix(object)
+coef.bayesICT <- coefficients.bayesICT <- function(object,
+                                            probs=c(0.025, 0.975), ...) {
+  coefmat <- bayesICT_coef_matrix(object, probs=probs)
   # Replace raw Stan names such as delta[1] with interpretable labels.
   rownames(coefmat) <- bayesICT_coef_labels(rownames(coefmat), object)
   coefmat
@@ -21,13 +23,14 @@ coef.bayesICT <- coefficients.bayesICT <- function(object, ...) {
 #'
 #' @param x A bayesICT object.
 #' @param type Character string giving the print type: "text", "mcmc", or "coef".
+#' @param probs A numeric vector of length two indicating the lower and upper bounds of the marginal posteriors.
 #' @param ... Additional arguments passed to the selected print method.
 #'
 #' @return The input object, invisibly.
 #' @export
   # Normalize the requested print mode and dispatch to the corresponding
   # small method.  This avoids constructing function names as strings.
-print.bayesICT <- function(x, type = c("text", "mcmc", "coef"), ...) {
+print.bayesICT <- function(x, type = c("text", "mcmc", "coef"), probs=c(0.025, 0.975), ...) {
   type <- match.arg(type)
   # Select the corresponding print routine.
   printer <- switch(type,
@@ -35,7 +38,7 @@ print.bayesICT <- function(x, type = c("text", "mcmc", "coef"), ...) {
     mcmc = print_mcmc.bayesICT,
     coef = print_coef.bayesICT
   )
-  printer(object = x, ...)
+  printer(object = x, probs=probs, ...)
   # Preserve S3 print convention by returning the object invisibly below.
   invisible(x)
 }
@@ -43,6 +46,7 @@ print.bayesICT <- function(x, type = c("text", "mcmc", "coef"), ...) {
 #' Summarize a bayesICT object
 #'
 #' @param object A bayesICT object.
+#' @param probs A numeric vector of length two indicating the lower and upper bounds of the marginal posteriors.
 #' @param ... Additional arguments passed to print_text.bayesICT().
 #'
 #' @return The input object, invisibly.
@@ -50,8 +54,8 @@ print.bayesICT <- function(x, type = c("text", "mcmc", "coef"), ...) {
 #' @export
   # The summary method uses the same textual display as the default print
   # method, but returns the fitted object invisibly like standard summary methods.
-summary.bayesICT <- function(object, ...) {
-  print_text.bayesICT(object = object, ...)
+summary.bayesICT <- function(object, probs=c(0.025, 0.975), ...) {
+  print_text.bayesICT(object = object,  probs=probs, ...)
   invisible(object)
 }
 
@@ -62,17 +66,19 @@ summary.bayesICT <- function(object, ...) {
 #' @param list For double-list models, predict from the first list, second list,
 #'   or their average. The default uses the average when both lists have
 #'   separate prevalence parameters.
+#' @param ci Length-two vector of posterior interval probabilities.
 #' @param ... Further arguments; currently unused.
 #'
 #' @return A numeric vector of predicted sensitive-item prevalence values.
-#'   For `list_variable_model = "diff_means"`, the values are treated-minus-
+#'   For `list_variable_model = "saturated"`, the values are treated-minus-
 #'   control expected list-count differences under the fitted ordinal models.
 #' @method predict bayesICT
 #' @export
   # Prediction summarizes posterior draws of the sensitive-item prevalence
   # for each row of the model matrix.
-predict.bayesICT <- function(object, type = c("median", "mean"),
+predict.bayesICT <- function(object, type = c("median", "mean", "credible"),
                              list = c("auto", "first", "second", "average"),
+                             ci = c(0.025, 0.975),
                              ...) {
   type_missing <- missing(type)
   # Record whether the user supplied a prediction summary type; double-list
@@ -84,10 +90,10 @@ predict.bayesICT <- function(object, type = c("median", "mean"),
   has_second_delta <- bayesICT_has_parameter_draws(object$sampledf, "delta2")
   # Some double-list models share delta across lists, while others estimate delta2.
   has_second_X <- !is.null(object$X2)
-  is_diff_means <- identical(object$list_variable_model, "diff_means")
+  is_saturated <- identical(object$list_variable_model, "saturated")
 
-  p1 <- if (is_diff_means) {
-    bayesICT_diff_means_prevalence(
+  p1 <- if (is_saturated) {
+    bayesICT_saturated_prevalence(
       object$X, object$sampledf, object$J,
       treated_coef = "delta", control_coef = "psi0",
       treated_cuts = "psiMT", control_cuts = "psiM"
@@ -122,8 +128,8 @@ predict.bayesICT <- function(object, type = c("median", "mean"),
       stop("Second-list prediction requested, but posterior draws for 'delta2' or object$X2 are missing.")
     }
 
-    p2 <- if (is_diff_means) {
-      bayesICT_diff_means_prevalence(
+    p2 <- if (is_saturated) {
+      bayesICT_saturated_prevalence(
         object$X2, object$sampledf, object$J,
         treated_coef = "delta2", control_coef = "psi02",
         treated_cuts = "psiMT2", control_cuts = "psiM2"
@@ -147,11 +153,12 @@ predict.bayesICT <- function(object, type = c("median", "mean"),
 #'
 #' @param object A bayesICT object.
 #' @param digits Number of digits to display.
+#' @param probs A numeric vector of length two indicating the lower and upper bounds of the marginal posteriors.
 #'
 #' @return The input object, invisibly.
 #' @export
   # Print the model header, original call, MCMC run size, and coefficient table.
-print_text.bayesICT <- function(object, digits = 5) {
+print_text.bayesICT <- function(object, digits = 5, probs = c(0.05, 0.95)) {
   cat("Bayesian sensitive item model: ", object$type, "\n",
       "With number of control items = ", object$J, "\n", sep = "")
 
@@ -163,7 +170,7 @@ print_text.bayesICT <- function(object, digits = 5) {
       bayesICT_warmup_used(object), "used. \n\n")
 
   cat("Coefficients:\n")
-  print(round(coef(object), digits))
+  print(round(coef(object, probs), digits))
   # coef() performs the parameter filtering and row-label construction.
   cat("\n")
 
@@ -207,14 +214,17 @@ print_coef.bayesICT <- function(object, digits = 5) {
 #' Removes log-likelihood and Stan bookkeeping parameters from object$summaryout.
 #'
 #' @param object A bayesICT object.
+#' @param probs A numeric vector of length two indicating the lower and upper bounds of the marginal posteriors.
 #' @return A numeric matrix of posterior summaries for model parameters.
-bayesICT_coef_matrix <- function(object) {
+bayesICT_coef_matrix <- function(object, probs=c(0.025, 0.975)) {
   if (is.null(object$summaryout)) {
     # summaryout is the central posterior-summary table stored by bayesICT().
     stop("object$summaryout is missing.")
   }
 
-  coefmat <- object$summaryout
+# coefmat <- object$summaryout
+  coefmat <- rstan::summary(object$stanfit, probs=probs)$summary
+
   if (is.null(rownames(coefmat))) {
     stop("object$summaryout must have row names containing Stan parameter names.")
   }
@@ -456,7 +466,7 @@ bayesICT_ordered_count_draws <- function(X, sampledf, coefficient, cutpoints,
 #' @param treated_coef,control_coef Stan coefficient parameter names.
 #' @param treated_cuts,control_cuts Stan cutpoint-spacing parameter names.
 #' @return A matrix with observations in rows and posterior draws in columns.
-bayesICT_diff_means_prevalence <- function(X, sampledf, J, treated_coef,
+bayesICT_saturated_prevalence <- function(X, sampledf, J, treated_coef,
                                            control_coef, treated_cuts,
                                            control_cuts) {
   bayesICT_ordered_count_draws(
@@ -522,12 +532,21 @@ bayesICT_parameter_draws <- function(sampledf, parameter, ncol_expected = NULL) 
 #'
 #' @param draws Matrix with observations or quantities in rows and posterior draws in columns.
 #' @param type Summary type, either "mean" or "median".
+#' @param ci Length-two vector of posterior interval probabilities.
 #' @return A numeric vector of row summaries.
-bayesICT_summarize_rows <- function(draws, type) {
+bayesICT_summarize_rows <- function(draws, type, ci = c(0.025, 0.975)) {
   if (identical(type, "mean")) {
     # Prediction summaries are computed independently for each observation.
     apply(draws, 1L, mean, na.rm = TRUE)
+  } else {if (identical(type, "credible")) {
+
+    ## Extract posterior draws for the population prevalence parameter.
+    ## pas can be vector-valued when auxiliary groups are present.
+    ## Posterior interval and variance
+    ci <- sort(ci)
+#   posterior_var <- stats::var(draws, na.rm = TRUE)
+    apply(draws, 1L, stats::quantile, probs = ci, na.rm = TRUE)
   } else {
     apply(draws, 1L, stats::quantile, probs = 0.5, na.rm = TRUE)
-  }
+  }  }
 }

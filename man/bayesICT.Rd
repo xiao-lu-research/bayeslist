@@ -42,7 +42,8 @@ bayesICT(
 }
 \arguments{
 \item{formula}{An object of class "formula" (or one that can be coerced to that class): a symbolic description of the model to be fitted.
-The left-hand-side variable is the list variable. If it is a double or direct type of model, the left-hand-side variable
+The left-hand-side variable is the list variable.
+If it is a double or direct type of model, the left-hand-side variable
 is the first list variable.}
 
 \item{data}{A data frame containing the variables in the model.}
@@ -73,7 +74,7 @@ the underlying `rstan` function. Defaults to empty.}
 
 \item{prior}{Prior types. Options include NULL, "auxiliary", "double_list", and "double_list_aux".
 If NULL, no informative priors will be used. Auxiliary priors are not
-available with `list_variable_model = "diff_means"`; the single-list
+available with `list_variable_model = "saturated"`; the single-list
 auxiliary binomial model and beta-binomial model without bias are also
 unavailable.}
 
@@ -115,10 +116,10 @@ double and single lists (the default). If
 \item{sigma_rho0}{standard deviation for the prior on variance parameter without treatment}
 
 \item{list_variable_model}{Model for the control-list count: "beta-binomial",
-"binomial", "multinomial", or "diff_means". The default is "beta-binomial".
+"binomial", "parsimonious", or "saturated". The default is "beta-binomial".
 The binomial option uses a binomial control-count likelihood, including with
 two-list auxiliary priors; a single-list auxiliary binomial model is not
-implemented. The difference-in-means option uses an ordered-logistic count
+implemented. The saturated option uses an ordered-logistic count
 model and is available only without auxiliary priors.}
 
 \item{weights}{Variable name of the survey weights. This should be a variable in the data data frame. By default it is NULL, meaning equal weights.}

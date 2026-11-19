@@ -1,6 +1,6 @@
 Package: bayeslist
-Version: 0.0.4.0
-Date: 2026-11-06
+Version: 0.0.5.2
+Date: 2026-11-15
 Title: Bayesian Analysis of List Experiments with Prior Information
 Authors@R: c(person(given = "Xiao",
                     family = "Lu",
@@ -40,4 +40,4 @@ LinkingTo:
     rstan (>= 2.18.1),
     StanHeaders (>= 2.18.0)
 SystemRequirements: GNU make
-Config/roxygen2/version: 8.0.0
+Config/roxygen2/version: 8.1.1

@@ -4,12 +4,14 @@
 \alias{print_text.bayesICT}
 \title{Print the main results from a bayesICT object}
 \usage{
-print_text.bayesICT(object, digits = 5)
+print_text.bayesICT(object, digits = 5, probs = c(0.05, 0.95))
 }
 \arguments{
 \item{object}{A bayesICT object.}
 
 \item{digits}{Number of digits to display.}
+
+\item{probs}{A numeric vector of length two indicating the lower and upper bounds of the marginal posteriors.}
 }
 \value{
 The input object, invisibly.
