@@ -4,12 +4,14 @@
 \alias{print.bayesICT}
 \title{Print a bayesICT object}
 \usage{
-\method{print}{bayesICT}(x, type = c("text", "mcmc", "coef"), ...)
+\method{print}{bayesICT}(x, type = c("text", "mcmc", "coef"), probs = c(0.025, 0.975), ...)
 }
 \arguments{
 \item{x}{A bayesICT object.}
 
 \item{type}{Character string giving the print type: "text", "mcmc", or "coef".}
+
+\item{probs}{A numeric vector of length two indicating the lower and upper bounds of the marginal posteriors.}
 
 \item{...}{Additional arguments passed to the selected print method.}
 }

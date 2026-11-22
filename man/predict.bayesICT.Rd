@@ -6,8 +6,9 @@
 \usage{
 \method{predict}{bayesICT}(
   object,
-  type = c("median", "mean"),
+  type = c("median", "mean", "credible"),
   list = c("auto", "first", "second", "average"),
+  ci = c(0.025, 0.975),
   ...
 )
 }
@@ -20,11 +21,13 @@
 or their average. The default uses the average when both lists have
 separate prevalence parameters.}
 
+\item{ci}{Length-two vector of posterior interval probabilities.}
+
 \item{...}{Further arguments; currently unused.}
 }
 \value{
 A numeric vector of predicted sensitive-item prevalence values.
-  For `list_variable_model = "diff_means"`, the values are treated-minus-
+  For `list_variable_model = "saturated"`, the values are treated-minus-
   control expected list-count differences under the fitted ordinal models.
 }
 \description{

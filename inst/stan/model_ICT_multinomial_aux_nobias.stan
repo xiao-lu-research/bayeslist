@@ -1,3 +1,5 @@
+// Control-count probabilities use unrestricted log cutpoint gaps.
+// Only their cumulative exponential sums (the cutpoints) are ordered.
 functions{
 	
 	int group_size(array[] int ref, int value) {
@@ -57,7 +59,7 @@ data {
 	array[K] real mu_delta;
         array[K] real<lower = 0> sigma_delta; // prior delta standard deviation
         array[K] real<lower = 0> sigma_psi0; // prior psi0 standard deviation
-        array[J-1] real<lower = 0> sigma_psiM; // prior psiM standard deviation
+        array[J-1] real<lower = 0> sigma_psiM; // Prior SDs for control log cutpoint gaps.
 }
 
 transformed data{
@@ -73,7 +75,7 @@ parameters {
 	vector[K] psi0; // coefficients of controls without treatment
 	// vector[K] psi1; // coefficients of controls with treatment
 	vector[K] delta; // coefficients of controls on Z
-	ordered[J-1] psiM; // coefficients of controls without treatment
+	vector[J-1] psiM; // Unrestricted log cutpoint gaps for control counts.
 }
 
 transformed parameters {
@@ -84,7 +86,9 @@ transformed parameters {
                 (inv_logit(subset_matrix(X,K,g,gg) * delta)) ) /
                 sum(subset_vector(weights,g,gg));
   }
-  ordered[J] opsiM; // coefficients of controls without treatment
+  // Fix the first cutpoint at zero to identify the regression intercept.
+  // Cumulative exp(log gaps) orders the cutpoints; the log gaps need no ordering.
+  ordered[J] opsiM; // Ordered cutpoints for control counts.
   opsiM[1] = 0;
   for (k in 2:J){
     opsiM[k] = opsiM[k-1] + exp(psiM[k-1]);
@@ -100,7 +104,7 @@ model{
 	delta ~ normal(mu_delta,sigma_delta); // prior for the coefficients of controls on Z
 	psi0  ~ normal(mu_psi0,sigma_psi0); // prior for the coefficients of controls without treatment
 
-	psiM  ~ normal(0,sigma_psiM); // prior for the coefficients of controls (with or without treatment)
+	psiM  ~ normal(0,sigma_psiM); // Normal prior on unrestricted log gaps for control counts.
 
 	for (gg in 1:G){
 	  pas[gg] ~ beta(a[gg], b[gg]);

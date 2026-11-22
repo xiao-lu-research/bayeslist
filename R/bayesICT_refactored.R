@@ -9,7 +9,8 @@
 #' The function returns a \code{bayeslist} object that can be further investigated using standard functions such as \code{summary}, \code{plot}, \code{print}, \code{predict}, and \code{coef}. The model can be passed using a \code{formula} as in \code{lm()}. Convergence diagnostics can be performed using either \code{print(object, "mcmc")} or \code{plot(object, "trace")}.
 #'
 #' @param formula An object of class "formula" (or one that can be coerced to that class): a symbolic description of the model to be fitted.
-#' The left-hand-side variable is the list variable. If it is a double or direct type of model, the left-hand-side variable
+#' The left-hand-side variable is the list variable.
+#' If it is a double or direct type of model, the left-hand-side variable
 #' is the first list variable. 
 #' @param data A data frame containing the variables in the model.
 #' @param treat Variable name of the treatment.
@@ -28,7 +29,7 @@
 #' @param seeds Random seeds to replicate the results.
 #' @param prior Prior types. Options include NULL, "auxiliary", "double_list", and "double_list_aux".
 #' If NULL, no informative priors will be used. Auxiliary priors are not
-#' available with `list_variable_model = "diff_means"`; the single-list
+#' available with `list_variable_model = "saturated"`; the single-list
 #' auxiliary binomial model and beta-binomial model without bias are also
 #' unavailable.
 #' @param double_list Variable name of the second list.
@@ -53,10 +54,10 @@
 #' @param sigma_bias standard deviation for the prior on bias/bias2 of the sensitive item bias
 #' @param sigma_rho0 standard deviation for the prior on variance parameter without treatment
 #' @param list_variable_model Model for the control-list count: "beta-binomial",
-#' "binomial", "multinomial", or "diff_means". The default is "beta-binomial".
+#' "binomial", "parsimonious", or "saturated". The default is "beta-binomial".
 #' The binomial option uses a binomial control-count likelihood, including with
 #' two-list auxiliary priors; a single-list auxiliary binomial model is not
-#' implemented. The difference-in-means option uses an ordered-logistic count
+#' implemented. The saturated option uses an ordered-logistic count
 #' model and is available only without auxiliary priors.
 #' @param weights Variable name of the survey weights. This should be a variable in the data data frame. By default it is NULL, meaning equal weights.
 #' @param init_fun Optional. Set initial values by providing a function that returns a list for specifying the initial values of parameters  
@@ -158,7 +159,7 @@ bayesICT <- function(formula,
                      sigma_psiM = 10, # vector of standard deviations for the prior on psiM
                      sigma_bias = 10, # standard deviation for the prior on bias/bias2 of the sensitive item bias
                      sigma_rho0= 0.3, # standard deviation for the prior on variance parameter without treatment
-                     list_variable_model = "beta-binomial", # model for the outcome variable: either "binary" or "multinomial". The default is binary.
+                     list_variable_model = "beta-binomial", # model for the control-list count:  "binomial", "parsimonious", or "saturated".
                      weights = NULL, # survey weights, if any
                      init_fun = NULL, # Set initial values by providing a function that returns a list for specifying the initial values of parameters  
                      # direct = NULL, # data of direct item for the misreport model
@@ -272,7 +273,7 @@ bayesICT_outcome <- function(formula,
   prior_kind <- bayesICT_match_prior(prior)
   list_variable_model <- match.arg(
     list_variable_model,
-    choices = c("beta-binomial", "binomial", "multinomial", "diff_means")
+    choices = c("beta-binomial", "binomial", "parsimonious", "saturated")
   )
   # Auxiliary priors are the only cases where bias parameters can enter.
   # If the user does not specify a bias convention, use the historical default.
@@ -288,12 +289,12 @@ bayesICT_outcome <- function(formula,
     bias <- "no"
   }
 
-  if (list_variable_model == "diff_means" &&
+  if (list_variable_model == "saturated" &&
       prior_kind %in% c("auxiliary", "double_list_aux")) {
     stop("Auxiliary difference-in-means models are not implemented; choose a different list_variable_model or omit the auxiliary prior.")
   }
   if (list_variable_model == "binomial" && prior_kind == "auxiliary") {
-    stop("A single-list auxiliary binomial model is not implemented; choose beta-binomial or multinomial, or omit the auxiliary prior.")
+    stop("A single-list auxiliary binomial model is not implemented; choose beta-binomial or parsimonious, or omit the auxiliary prior.")
   }
   if (list_variable_model == "beta-binomial" && prior_kind == "auxiliary" &&
       bias == "no") {
@@ -978,11 +979,11 @@ bayesICT_select_stanmodel <- function(spec) {
   bias_key <- if (spec$prior_kind %in% c("none", "double_list")) "no" else spec$bias
   key <- paste(spec$prior_kind, spec$list_variable_model, bias_key, sep = "/")
 
-  if (spec$has_aux && spec$list_variable_model == "diff_means") {
+  if (spec$has_aux && spec$list_variable_model == "saturated") {
     stop("Auxiliary difference-in-means models are not implemented; choose a different list_variable_model or omit the auxiliary prior.")
   }
   if (spec$prior_kind == "auxiliary" && spec$list_variable_model == "binomial") {
-    stop("A single-list auxiliary binomial model is not implemented; choose beta-binomial or multinomial, or omit the auxiliary prior.")
+    stop("A single-list auxiliary binomial model is not implemented; choose beta-binomial or parsimonious, or omit the auxiliary prior.")
   }
   if (spec$prior_kind == "auxiliary" &&
       spec$list_variable_model == "beta-binomial" && bias_key == "no") {
@@ -992,30 +993,30 @@ bayesICT_select_stanmodel <- function(spec) {
   # Each key has the form prior_kind/list_variable_model/bias_key.  This table
   # replaces the nested if/else tree in the original implementation.
   model_map <- list(
-    "none/beta-binomial/no" = stanmodels$model_ICT_noaux,
+    "none/beta-binomial/no" = stanmodels$model_ICT_betabinomial_noaux,
     "none/binomial/no" = stanmodels$model_ICT_binomial_noaux,
-    "none/multinomial/no" = stanmodels$model_ICT_multinomial_noaux,
-    "none/diff_means/no" = stanmodels$model_ICT_multinomial_diff_means,
+    "none/parsimonious/no" = stanmodels$model_ICT_multinomial_control_noaux,
+    "none/saturated/no" = stanmodels$model_ICT_multinomial_armwise_noaux,
 
-    "auxiliary/beta-binomial/common" = stanmodels$model_ICT_aux,
-    "auxiliary/beta-binomial/separate" = stanmodels$model_ICT_aux,
-    "auxiliary/multinomial/common" = stanmodels$model_ICT_multinomial_aux,
-    "auxiliary/multinomial/separate" = stanmodels$model_ICT_multinomial_aux, # no seperate for single list
-    "auxiliary/multinomial/no" = stanmodels$model_ICT_multinomial_aux_nobias,
-    "double_list/beta-binomial/no" = stanmodels$model_ICT_doublelist_noaux,
+    "auxiliary/beta-binomial/common" = stanmodels$model_ICT_betabinomial_aux_bias,
+    "auxiliary/beta-binomial/separate" = stanmodels$model_ICT_betabinomial_aux_bias,
+    "auxiliary/parsimonious/common" = stanmodels$model_ICT_multinomial_control_aux_bias,
+    "auxiliary/parsimonious/separate" = stanmodels$model_ICT_multinomial_control_aux_bias,
+    "auxiliary/parsimonious/no" = stanmodels$model_ICT_multinomial_aux_nobias,
+    "double_list/beta-binomial/no" = stanmodels$model_ICT_doublelist_betabinomial_noaux,
     "double_list/binomial/no" = stanmodels$model_ICT_doublelist_binomial_noaux,
-    "double_list/multinomial/no" = stanmodels$model_ICT_doublelist_multinomial_noaux,
-    "double_list/diff_means/no" = stanmodels$model_ICT_doublelist_multinomial_diff_means,
+    "double_list/parsimonious/no" = stanmodels$model_ICT_doublelist_multinomial_control_noaux,
+    "double_list/saturated/no" = stanmodels$model_ICT_doublelist_multinomial_armwise_noaux,
 
-    "double_list_aux/beta-binomial/common" = stanmodels$model_ICT_doublelist_aux,
-    "double_list_aux/beta-binomial/separate" = stanmodels$model_ICT_doublelist_aux_bias_separate,
-    "double_list_aux/beta-binomial/no" = stanmodels$model_ICT_doublelist_aux_nobias,
+    "double_list_aux/beta-binomial/common" = stanmodels$model_ICT_doublelist_betabinomial_aux_bias_common,
+    "double_list_aux/beta-binomial/separate" = stanmodels$model_ICT_doublelist_betabinomial_aux_bias_separate,
+    "double_list_aux/beta-binomial/no" = stanmodels$model_ICT_doublelist_betabinomial_aux_nobias,
     "double_list_aux/binomial/common" = stanmodels$model_ICT_doublelist_binomial_aux_bias_common,
     "double_list_aux/binomial/separate" = stanmodels$model_ICT_doublelist_binomial_aux_bias_separate,
     "double_list_aux/binomial/no" = stanmodels$model_ICT_doublelist_binomial_aux_nobias,
-    "double_list_aux/multinomial/common" = stanmodels$model_ICT_doublelist_multinomial_aux_bias_common,
-    "double_list_aux/multinomial/separate" = stanmodels$model_ICT_doublelist_multinomial_aux_bias_separate, 
-    "double_list_aux/multinomial/no" = stanmodels$model_ICT_doublelist_multinomial_aux_nobias
+    "double_list_aux/parsimonious/common" = stanmodels$model_ICT_doublelist_multinomial_aux_bias_common,
+    "double_list_aux/parsimonious/separate" = stanmodels$model_ICT_doublelist_multinomial_aux_bias_separate,
+    "double_list_aux/parsimonious/no" = stanmodels$model_ICT_doublelist_multinomial_aux_nobias
   )
 
   stanmodel <- model_map[[key]]
@@ -1078,11 +1079,11 @@ bayesICT_make_datlist <- function(spec, J, data_info, prior_info, aux_data, doub
       datlist$sigma_rho0 <- prior_info$sigma_rho0 /
         (prior_info$mu_rho0 * (1 - prior_info$mu_rho0))
     }
-    if (spec$list_variable_model %in% c("multinomial", "diff_means")) {
+    if (spec$list_variable_model %in% c("parsimonious", "saturated")) {
       datlist$mu_psiM <- prior_info$mu_psiM
       datlist$sigma_psiM <- as.array(prior_info$sigma_psiM)
     }
-    if (spec$list_variable_model == "diff_means") {
+    if (spec$list_variable_model == "saturated") {
       datlist$sigma_psiMT <- as.array(rep(prior_info$sigma_psiM[1], J))
     }
   }
@@ -1104,11 +1105,11 @@ bayesICT_make_datlist <- function(spec, J, data_info, prior_info, aux_data, doub
   # Double-list models without auxiliary information only need the second-list
   # data plus any multinomial cutpoint priors.
   if (spec$prior_kind == "double_list") {
-    if (spec$list_variable_model %in% c("multinomial", "diff_means")) {
+    if (spec$list_variable_model %in% c("parsimonious", "saturated")) {
       datlist$sigma_psiM <- as.array(prior_info$sigma_psiM)
       datlist$mu_psiM <- prior_info$mu_psiM
     }
-    if (spec$list_variable_model == "diff_means") {
+    if (spec$list_variable_model == "saturated") {
       datlist$sigma_psiMT <- as.array(rep(prior_info$sigma_psiM[1], J))
     }
   }
@@ -1125,7 +1126,7 @@ bayesICT_make_datlist <- function(spec, J, data_info, prior_info, aux_data, doub
     if (spec$list_variable_model == "beta-binomial") {
       datlist$mu_rho0 <- prior_info$mu_rho0
       datlist$sigma_rho0 <- prior_info$sigma_rho0
-    } else if (spec$list_variable_model == "multinomial") {
+    } else if (spec$list_variable_model == "parsimonious") {
       datlist$mu_psiM <- prior_info$mu_psiM
       datlist$sigma_psiM <- prior_info$sigma_psiM
     }
@@ -1144,10 +1145,10 @@ bayesICT_make_pars <- function(spec) {
   # The monitored parameters must match both the selected Stan program and the
   # quantities expected by print(), plot(), and predict() methods.
   if (spec$prior_kind == "none") {
-    if (spec$list_variable_model == "multinomial") {
+    if (spec$list_variable_model == "parsimonious") {
       return(c("psi0", "delta", "psiM", "pas", "log_lik"))
     }
-    if (spec$list_variable_model == "diff_means") {
+    if (spec$list_variable_model == "saturated") {
       return(c("psi0", "delta", "psiM", "psiMT", "pas", "log_lik"))
     }
     if (spec$list_variable_model == "beta-binomial") {
@@ -1160,20 +1161,20 @@ bayesICT_make_pars <- function(spec) {
     return(c(
       "psi0", "delta",
       if (spec$list_variable_model == "beta-binomial") "rho0",
-      if (spec$list_variable_model == "multinomial") "psiM",
+      if (spec$list_variable_model == "parsimonious") "psiM",
       if (spec$bias %in% c("common", "separate")) "bias",
       "pas", "log_lik"
     ))
   }
 
   if (spec$prior_kind == "double_list") {
-    if (spec$list_variable_model == "multinomial") {
+    if (spec$list_variable_model == "parsimonious") {
       return(c("psi0", "delta", "psi02", "delta2", "psiM", "psiM2", "pas", "log_lik"))
     }
     if (spec$list_variable_model == "binomial") {
       return(c("psi0", "delta", "psi02", "delta2", "pas", "log_lik"))
     }
-    if (spec$list_variable_model == "diff_means") {
+    if (spec$list_variable_model == "saturated") {
       return(c("psi0", "delta", "psiM", "psiMT", "psi02", "delta2",
                "psiM2", "psiMT2", "pas", "log_lik"))
     }
@@ -1184,7 +1185,7 @@ bayesICT_make_pars <- function(spec) {
     return(c(
       "psi0", "delta", "psi02", "delta2",
       if (spec$list_variable_model == "beta-binomial") c("rho0", "rho02"),
-      if (spec$list_variable_model == "multinomial") "psiM",
+      if (spec$list_variable_model == "parsimonious") "psiM",
       if (!(spec$list_variable_model %in% c("beta-binomial", "binomial"))) "psiM2",
       if (spec$bias %in% c("common", "separate")) "bias",
       if (spec$bias == "separate") "bias2",

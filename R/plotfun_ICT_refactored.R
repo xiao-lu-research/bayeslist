@@ -208,6 +208,8 @@ plot_trace.bayesICT <- function(object, main = "", pars = NULL,
 #'   log_lik and lp__ are plotted.
 #' @param label If TRUE, try to replace Stan parameter names in the returned
 #'   ggplot object by the same human-readable labels used by coef.bayesICT().
+#' @param ci_level Probability content of the inner interval.
+#' @param outer_level Probability content of the outer interval.
 #' @param ... Additional arguments passed to rstan::plot().
 #'
 #' @return A ggplot object.

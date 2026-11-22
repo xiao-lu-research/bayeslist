@@ -4,10 +4,12 @@
 \alias{bayesICT_coef_matrix}
 \title{Extract the non-internal coefficient-summary matrix}
 \usage{
-bayesICT_coef_matrix(object)
+bayesICT_coef_matrix(object, probs = c(0.025, 0.975))
 }
 \arguments{
 \item{object}{A bayesICT object.}
+
+\item{probs}{A numeric vector of length two indicating the lower and upper bounds of the marginal posteriors.}
 }
 \value{
 A numeric matrix of posterior summaries for model parameters.

@@ -4,10 +4,12 @@
 \alias{coef.bayesICT}
 \title{Extract coefficients from a bayesICT object}
 \usage{
-\method{coef}{bayesICT}(object, ...)
+\method{coef}{bayesICT}(object, probs = c(0.025, 0.975), ...)
 }
 \arguments{
 \item{object}{A bayesICT object returned by bayesICT().}
+
+\item{probs}{A numeric vector of length two indicating the lower and upper bounds of the marginal posteriors.}
 
 \item{...}{Further arguments; currently unused.}
 }

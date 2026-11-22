@@ -1,3 +1,5 @@
+// Control-count probabilities use unrestricted log cutpoint gaps.
+// Only their cumulative exponential sums (the cutpoints) are ordered.
 functions{
 
 	int group_size(array[] int ref, int value) {
@@ -56,7 +58,7 @@ data {
         array[K] real<lower = 0> sigma_delta; // prior delta standard deviation
         array[K] real<lower = 0> sigma_psi0; // prior psi0 standard deviation
         real<lower = 0> sigma_bias; // prior bias standard deviation
-        array[J-1] real<lower = 0> sigma_psiM; // prior psiM standard deviation
+        array[J-1] real<lower = 0> sigma_psiM; // Prior SDs for control log cutpoint gaps.
 	vector[N] weights; // survey weights
 	int G; // number of subgroups
 	array[G] real h; // auxiliary information for subgroups
@@ -87,8 +89,8 @@ parameters {
 	vector[K] delta2; // coefficients of second list controls on Z
 	real<lower = 0, upper = 1> rho0; //variance parameter without treatment
 	real<lower = 0, upper = 1> rho02; //variance parameter without treatment
-	ordered[J-1] psiM; // coefficients of controls without treatment
-	ordered[J-1] psiM2; // coefficients of controls without treatment
+	vector[J-1] psiM; // Unrestricted log cutpoint gaps for list 1 control counts.
+	vector[J-1] psiM2; // Unrestricted log cutpoint gaps for list 2 control counts.
 }
 
 
@@ -103,8 +105,10 @@ transformed parameters {
      0.5*(inv_logit(subset_matrix(X2,K,g,gg) * delta2)) ) /
      sum(subset_vector(weights,g,gg));
   }
-  ordered[J] opsiM; // coefficients of controls without treatment
-  ordered[J] opsiM2; // coefficients of controls without treatment
+  // Fix the first cutpoint at zero to identify the regression intercept.
+  // Cumulative exp(log gaps) orders the cutpoints; the log gaps need no ordering.
+  ordered[J] opsiM; // Ordered cutpoints for list 1 control counts.
+  ordered[J] opsiM2; // Ordered cutpoints for list 2 control counts.
 //opsiM[1] = psi0[1];
   opsiM[1] = 0;
   opsiM2[1] = 0;
@@ -128,7 +132,8 @@ model{
         delta2 ~ normal(mu_delta,sigma_delta); // prior for the coefficients of controls on Z
         psi02  ~ normal(mu_psi0,sigma_psi0); // prior for the coefficients of controls without treatment
 	
-	psiM  ~ normal(0,sigma_psiM); // prior for the coefficients of controls (with or without treatment)
+	psiM  ~ normal(0,sigma_psiM); // Normal prior on unrestricted log gaps for list 1 control counts.
+	psiM2 ~ normal(0,sigma_psiM); // Matching normal prior for list 2 log cutpoint gaps.
 
 	for (gg in 1:G){
   	  pas[gg] ~ beta(a[gg], b[gg]);
